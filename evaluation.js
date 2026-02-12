@@ -120,13 +120,24 @@
     const baseCells = baseFields.map((field)=>baseFieldCell(field, stu)).join("");
     const noteCell = showNote ? `<td data-cell="note"><strong>${computeScore(stu)}</strong></td>` : "";
     return `<tr data-id="${stu.id}" data-name="${stu.name}" data-group="${stu.groupTag||""}">
-      <td>${stu.name}</td>
+      <td>${nameCell(stu)}</td>
       <td>${groupCell(stu)}</td>
       ${baseCells}
       ${criteriaCells}
       ${noteCell}
       <td data-cell="status">${statusHTML(stu)}</td>
     </tr>`;
+  }
+  function nameCell(stu){
+    const absentClass = stu.absent ? "active" : "";
+    const dispClass = stu.dispense ? "active" : "";
+    return `<div class="nameCell">
+      <span class="studentName">${stu.name}</span>
+      <div class="presenceBadges">
+        <button type="button" class="presenceToggle abs ${absentClass}" data-presence="abs" title="Marquer absent">ABS</button>
+        <button type="button" class="presenceToggle disp ${dispClass}" data-presence="disp" title="Marquer dispensé">DISP</button>
+      </div>
+    </div>`;
   }
 
   function groupCell(stu){
@@ -255,6 +266,7 @@
 
   tbody.addEventListener("input", handleFieldChange);
   tbody.addEventListener("change", handleFieldChange);
+  tbody.addEventListener("click", handlePresenceClick);
 
   function handleFieldChange(event){
     const field = event.target.dataset.field;
@@ -279,6 +291,24 @@
     }
     row.querySelector('[data-cell="status"]').innerHTML = statusHTML(student);
     updateStats();
+  }
+
+  function handlePresenceClick(event){
+    const btn = event.target.closest("[data-presence]");
+    if(!btn) return;
+    const row = btn.closest("tr");
+    if(!row) return;
+    const student = evaluation.data.students.find((stu)=>stu.id === row.dataset.id);
+    if(!student) return;
+    if(btn.dataset.presence === "abs"){
+      student.absent = !student.absent;
+      if(student.absent) student.dispense = false;
+    }else if(btn.dataset.presence === "disp"){
+      student.dispense = !student.dispense;
+      if(student.dispense) student.absent = false;
+    }
+    persist();
+    render();
   }
 
   document.getElementById("btnExportCsv")?.addEventListener("click", exportCSV);

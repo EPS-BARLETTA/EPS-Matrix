@@ -58,17 +58,7 @@ function loadState(){
 }
 
 function defaultState(){
-  const baseClass = {
-    id:genId("cls"),
-    name:"4eB",
-    teacher:"J. Barletta",
-    site:"Gymnase",
-    color:DEFAULT_CLASS_COLOR,
-    students: LISTE_DEFAULT.map((name)=>({id:genId("stu"), name})),
-    evaluations:[],
-    notes:createEmptyNotes()
-  };
-  return {classes:[baseClass]};
+  return {classes:[]};
 }
 
 function normalizeEvaluation(ev, cls){

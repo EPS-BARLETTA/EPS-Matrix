@@ -121,6 +121,15 @@ table textarea{min-height:40px;resize:vertical;}
 :root[data-theme="dark"] tbody td{border-color:#1f3358;}
 :root[data-theme="dark"] table input,
 :root[data-theme="dark"] table textarea{background:#14213d;color:#e2e8ff;border-color:#273555;}
+.nameCell{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:190px;}
+.studentName{font-weight:600;}
+.presenceBadges{display:flex;gap:6px;}
+.presenceToggle{border:1px solid var(--line);background:#eef2ff;color:#1f2a44;font-weight:700;font-size:0.7rem;padding:2px 8px;border-radius:999px;cursor:pointer;transition:.2s;}
+.presenceToggle.abs.active{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
+.presenceToggle.disp.active{background:#fef3c7;border-color:#fcd34d;color:#92400e;}
+:root[data-theme="dark"] .presenceToggle{background:rgba(30,41,71,.7);color:#cbd5f5;border-color:#273555;}
+:root[data-theme="dark"] .presenceToggle.abs.active{background:#7f1d1d;color:#fecaca;border-color:#ef4444;}
+:root[data-theme="dark"] .presenceToggle.disp.active{background:#78350f;color:#fde68a;border-color:#f59e0b;}
 .groupPicker{width:auto;min-width:70px;max-width:110px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:rgba(248,251,255,.95);font-weight:600;text-align:center;}
 :root[data-theme=\"dark\"] .groupPicker{background:rgba(15,23,42,.75);color:#e2e8ff;border-color:#273555;}
 tbody tr.grouped td{background:var(--group-bg);}
