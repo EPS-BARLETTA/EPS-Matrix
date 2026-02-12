@@ -28,11 +28,16 @@ const BASE_FIELDS = [
 ];
 const DEFAULT_BASE_FIELDS = [];
 const DEFAULT_CRITERIA = [];
+let storageWarningShown = false;
 
 function loadState(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
-    if(!raw) return defaultState();
+    if(!raw){
+      const fallback = window.__EPS_FALLBACK_STATE;
+      if(fallback) return structuredClone(fallback);
+      return defaultState();
+    }
     const parsed = JSON.parse(raw);
     parsed.classes = Array.isArray(parsed.classes) && parsed.classes.length ? parsed.classes : defaultState().classes;
     parsed.classes.forEach((cls)=>{
@@ -41,8 +46,15 @@ function loadState(){
       cls.color = cls.color || DEFAULT_CLASS_COLOR;
       cls.notes = normalizeNotes(cls.notes, cls);
     });
+    window.__EPS_FALLBACK_STATE = structuredClone(parsed);
     return parsed;
-  }catch(e){ console.warn("reset state", e); return defaultState(); }
+  }catch(e){
+    console.warn("loadState fallback", e);
+    if(window.__EPS_FALLBACK_STATE){
+      return structuredClone(window.__EPS_FALLBACK_STATE);
+    }
+    return defaultState();
+  }
 }
 
 function defaultState(){
@@ -92,7 +104,19 @@ function buildDefaultScoring(){
   return {};
 }
 
-function saveState(state){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function saveState(state){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    window.__EPS_FALLBACK_STATE = structuredClone(state);
+  }catch(e){
+    console.warn("saveState fallback", e);
+    window.__EPS_FALLBACK_STATE = structuredClone(state);
+    if(!storageWarningShown){
+      alert("Sauvegarde locale impossible (mode privé ou stockage bloqué). Les données restent disponibles tant que l'onglet reste ouvert.");
+      storageWarningShown = true;
+    }
+  }
+}
 function genId(prefix){ return `${prefix}_${Math.random().toString(36).slice(2,7)}${Date.now().toString(36).slice(-4)}`; }
 
 function formatStudentName(raw){
