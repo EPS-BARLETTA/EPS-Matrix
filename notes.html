@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EPS Matrix – Bloc note</title>
+  <script>
+    (function(){
+      try{
+        const stored = localStorage.getItem('eps.matrix.theme');
+        if(stored){ document.documentElement.dataset.theme = stored; }
+      }catch(_e){}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="js/theme.js"></script>
+  <script defer src="js/app.js"></script>
+  <script defer src="js/notes.js"></script>
+</head>
+<body class="notes">
+  <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
+  <main class="card-full" style="gap:24px;">
+    <header class="app">
+      <div>
+        <h2 id="notesTitle">Bloc note</h2>
+        <p id="notesMeta" class="dragHint"></p>
+      </div>
+      <div class="navButtons">
+        <a class="btn secondary" id="backClass" href="classes.html">← Retour classe</a>
+        <button class="btn secondary" id="btnExportNotes" type="button">Exporter JSON</button>
+      </div>
+    </header>
+    <section class="notesLayout">
+      <div class="cardSection">
+        <h3>Tableau d'observations</h3>
+        <p class="muted">Une ligne d'écriture libre par élève (auto-sauvegarde).</p>
+        <div class="tableWrapper">
+          <table>
+            <thead><tr><th>Prénom</th><th>Note</th></tr></thead>
+            <tbody id="notesBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="cardSection">
+        <div class="sectionHeader">
+          <div>
+            <h3>Mur de post-it</h3>
+            <p class="muted">Ajoute des pense-bêtes colorés.</p>
+          </div>
+          <div class="navButtons">
+            <button class="btn secondary" id="btnAddSticky" type="button">+ Post-it</button>
+            <button class="btn secondary" id="btnClearStickies" type="button">Effacer</button>
+          </div>
+        </div>
+        <div id="stickiesBoard" class="stickiesBoard"></div>
+      </div>
+      <div class="cardSection">
+        <div class="sectionHeader">
+          <div>
+            <h3>Mode stylet</h3>
+            <p class="muted">Écris à main levée (Apple Pencil compatible).</p>
+          </div>
+          <div class="navButtons">
+            <button class="btn secondary" id="btnClearSketch" type="button">Effacer</button>
+          </div>
+        </div>
+        <div class="sketchShell">
+          <canvas id="sketchCanvas" width="900" height="360"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

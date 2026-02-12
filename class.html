@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EPS Matrix – Classe</title>
+  <script>
+    (function(){
+      try{
+        const stored = localStorage.getItem('eps.matrix.theme');
+        if(stored){ document.documentElement.dataset.theme = stored; }
+      }catch(_e){}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="js/theme.js"></script>
+  <script defer src="js/app.js"></script>
+  <script defer src="js/class-detail.js"></script>
+</head>
+<body>
+  <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
+  <main class="card-full" style="gap:24px;">
+    <header class="app">
+      <div>
+        <h2 id="classTitle">Classe</h2>
+        <p id="classMeta" class="dragHint"></p>
+      </div>
+      <div class="navButtons">
+        <a class="btn secondary" href="classes.html">← Retour classes</a>
+        <a class="btn secondary" href="create-class.html">Créer une classe</a>
+        <button class="btn primary" id="btnNewEval">Créer une évaluation</button>
+        <button class="btn secondary danger" id="btnDeleteClass">Supprimer la classe</button>
+      </div>
+    </header>
+    <div class="grid" id="caGrid"></div>
+  </main>
+
+  <div class="modal hidden" id="evalModal" role="dialog" aria-modal="true">
+    <div class="modalCard" style="max-width:720px;">
+      <div class="modalHeader" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <h2 id="evalModalTitle" style="margin:0;">Évaluations</h2>
+        <button class="iconButton" id="closeEvalModal" aria-label="Fermer">×</button>
+      </div>
+      <div id="evalModalContent" class="caList" style="margin-top:16px;"></div>
+    </div>
+  </div>
+</body>
+</html>

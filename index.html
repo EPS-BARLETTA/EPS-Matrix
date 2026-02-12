@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EPS Matrix</title>
+  <script>
+    (function(){
+      try{
+        const stored = localStorage.getItem('eps.matrix.theme');
+        if(stored){ document.documentElement.dataset.theme = stored; }
+      }catch(_e){}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="js/theme.js"></script>
+</head>
+<body class="landing simpleLanding">
+  <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
+  <main class="landingCenter">
+    <h1>EPS Matrix</h1>
+    <p class="lead">Crée, personnalise et centralise tes évaluations par classe et champs d'apprentissage.</p>
+    <div class="ctaRow" style="justify-content:center;">
+      <a class="btn primary" href="hub.html">Démarrer</a>
+      <button class="btn secondary" id="btnLandingManual">Mode d'emploi</button>
+    </div>
+  </main>
+  <div class="modal hidden" id="landingManual">
+    <div class="modalCard">
+      <h2>Mode d'emploi</h2>
+      <div class="manualBlocks">
+        <div class="manualBlock" data-tone="blue">
+          <h3>1. Préparer vos classes</h3>
+          <p>Depuis « Créer une classe », renseigne nom, site, couleur puis colle la liste : seul le prénom + initiale est gardé automatiquement.</p>
+        </div>
+        <div class="manualBlock" data-tone="green">
+          <h3>2. Choisir un mode</h3>
+          <p>Dans « Accéder à mes classes », ouvre le dossier désiré, sélectionne un champ d’apprentissage (CA1 à CA5) ou le Bloc note, puis clique sur « Créer une évaluation ».</p>
+        </div>
+        <div class="manualBlock" data-tone="orange">
+          <h3>3. Configurer & saisir</h3>
+          <ul>
+            <li>Dans la page Évaluation : onglet « Configurer » pour activer les champs, ajouter vos critères, regrouper les élèves.</li>
+            <li>« Notation » définit les points attribués à chaque option.</li>
+            <li>Export CSV/PDF à tout moment, puis re-import possible sur la même grille.</li>
+          </ul>
+        </div>
+        <div class="manualBlock" data-tone="pink">
+          <h3>4. Raccourcis utiles</h3>
+          <p>Mode nuit ☾, plein écran pour l’iPad, bloc note pour prises rapides et sauvegarde locale automatique.</p>
+        </div>
+      </div>
+      <div class="actions" style="text-align:right;">
+        <button class="btn secondary" onclick="document.getElementById('landingManual').classList.add('hidden')">Fermer</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.getElementById('btnLandingManual').addEventListener('click', ()=>{
+      document.getElementById('landingManual').classList.remove('hidden');
+    });
+  </script>
+</body>
+</html>

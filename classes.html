@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EPS Matrix – Classes</title>
+  <script>
+    (function(){
+      try{
+        const stored = localStorage.getItem('eps.matrix.theme');
+        if(stored){ document.documentElement.dataset.theme = stored; }
+      }catch(_e){}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="js/theme.js"></script>
+  <script defer src="js/app.js"></script>
+  <script defer src="js/classes.js"></script>
+</head>
+<body>
+  <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
+  <main class="card-full" style="gap:24px;">
+    <header class="app">
+      <div>
+        <h2>Mes classes</h2>
+        <p class="dragHint">Glisse-dépose tes dossiers pour organiser tes classes.</p>
+      </div>
+      <div class="navButtons">
+        <a class="btn secondary" href="hub.html">← Retour hub</a>
+        <a class="btn secondary" href="create-class.html">Créer une classe</a>
+      </div>
+    </header>
+    <div class="stats" id="classesStats"></div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--muted);">
+      <input type="checkbox" id="chkShowArchived" /> Afficher les évaluations archivées <span style="font-size:0.85rem;">(les dossiers archivés redeviennent visibles partout)</span>
+    </label>
+    <div class="grid" id="folderGrid"></div>
+  </main>
+</body>
+</html>

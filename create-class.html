@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EPS Matrix – Créer une classe</title>
+  <script>
+    (function(){
+      try{
+        const stored = localStorage.getItem('eps.matrix.theme');
+        if(stored){ document.documentElement.dataset.theme = stored; }
+      }catch(_e){}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="js/theme.js"></script>
+  <script defer src="js/app.js"></script>
+  <script defer src="js/create-class.js"></script>
+</head>
+<body class="create-class">
+  <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
+  <main class="card-full heroCard" style="max-width:900px;">
+    <header class="app" style="justify-content:center;">
+      <div>
+        <h2 style="margin-bottom:4px;">Nouvelle classe</h2>
+        <p class="lead">Colle ta liste, on s’occupe du format prénom + initiale.</p>
+      </div>
+    </header>
+    <div class="formShell">
+      <div class="navButtons" style="justify-content:space-between;">
+        <a class="btn secondary" href="hub.html">← Retour hub</a>
+        <a class="btn secondary" href="classes.html">Voir mes classes</a>
+      </div>
+      <form id="classForm" style="display:flex;flex-direction:column;gap:20px;">
+        <div class="formGrid">
+          <label>Nom<input name="name" required placeholder="Ex. 4e B" /></label>
+          <label>Enseignant<input name="teacher" placeholder="Professeur référent" /></label>
+          <label>Site<input name="site" placeholder="Gymnase, mur, piscine…" /></label>
+          <label>Couleur<input name="color" type="color" value="#1c5bff" /></label>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:8px;font-weight:600;color:var(--muted);">
+          Liste d'élèves
+          <textarea name="students" placeholder="Nom Prénom (un par ligne)"></textarea>
+        </label>
+        <div class="actions" style="display:flex;gap:10px;justify-content:flex-end;">
+          <a class="btn secondary" href="hub.html">Annuler</a>
+          <button class="btn primary" type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </main>
+</body>
+</html>
