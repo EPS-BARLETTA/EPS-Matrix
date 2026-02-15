@@ -1,5 +1,12 @@
 (function(){
   try{
+    initNotes();
+  }catch(err){
+    console.error("EPS Matrix – Bloc note", err);
+    alert("Bloc note : une erreur empêche le fonctionnement ("+(err?.message||err)+"). Ouvre la console pour plus de détails.");
+  }
+
+  function initNotes(){
   const params = new URLSearchParams(window.location.search);
   const classId = params.get("class");
   if(!classId){ window.location.href = "classes.html"; return; }
@@ -32,6 +39,8 @@
   const canvas = document.getElementById("sketchCanvas");
   const ctx = canvas?.getContext("2d") || null;
   const hasCanvas = Boolean(canvas && ctx);
+  let drawing = false;
+  let fullscreen = false;
   if(hasCanvas){
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -144,9 +153,6 @@
       });
     });
   }
-
-  let drawing = false;
-  let fullscreen = false;
 
   if(hasCanvas){
     canvas.addEventListener("pointerdown", (event)=>{
@@ -365,8 +371,5 @@
     if(typeof factory === "function") return factory(title);
     return {id:window.EPSMatrix.genId("sketch"), title:title || "Page stylet", data:null, createdAt:Date.now(), updatedAt:null};
   }
-  }catch(err){
-    console.error("EPS Matrix – Bloc note", err);
-    alert("Bloc note : une erreur empêche le fonctionnement ("+(err?.message||err)+"). Ouvre la console pour plus de détails.");
   }
 })();
