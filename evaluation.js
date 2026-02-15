@@ -31,9 +31,8 @@
   evaluation.data.students.forEach((stu)=>window.EPSMatrix.ensureTerrainStudentFields(stu));
   const hadTerrainMode = Boolean(evaluation.data.terrainMode);
   evaluation.data.terrainMode = window.EPSMatrix.normalizeTerrainMode(evaluation.data.terrainMode, evaluation.data.students);
-  if(typeof evaluation.data.activeMode !== "string"){
-    evaluation.data.activeMode = evaluation.data.terrainMode?.enabled ? "terrain" : "classic";
-  }
+  const terrainEnabled = Boolean(evaluation.data.terrainMode?.enabled);
+  evaluation.data.activeMode = terrainEnabled ? "terrain" : "classic";
   ensureCurrentRound();
   if(!hadTerrainMode){
     window.EPSMatrix.saveState(state);
