@@ -51,7 +51,7 @@
   const btnOpenChatGPT = document.getElementById("btnOpenChatGPT");
   const btnToggleNote = document.getElementById("btnToggleNote");
   const terrainPanel = document.getElementById("terrainPanel");
-  const terrainToggle = document.getElementById("toggleTerrainMode");
+  const terrainToggleBtn = document.getElementById("btnToggleTerrainMode");
   const terrainCountInput = document.getElementById("terrainCountInput");
   const btnInitTerrains = document.getElementById("btnInitTerrains");
   const terrainGrid = document.getElementById("terrainGrid");
@@ -71,6 +71,11 @@
   const btnNextRotation = document.getElementById("btnNextRotation");
   const btnUndoRotation = document.getElementById("btnUndoRotation");
   const rotationRoundLabel = document.getElementById("rotationRoundLabel");
+  const rotationReadyPopup = document.getElementById("rotationReadyPopup");
+  const rotationReadyTitle = document.getElementById("rotationReadyTitle");
+  const rotationReadyDesc = document.getElementById("rotationReadyDesc");
+  const btnReadyNext = document.getElementById("btnReadyNext");
+  const btnReadyReview = document.getElementById("btnReadyReview");
   const studentSummaryModal = document.getElementById("studentSummaryModal");
   const studentSummaryTitle = document.getElementById("studentSummaryTitle");
   const studentSummaryMeta = document.getElementById("studentSummaryMeta");
@@ -1347,18 +1352,10 @@
 
   function setupTerrainEvents(){
     if(!terrainPanel) return;
-    if(terrainToggle){
-      terrainToggle.checked = Boolean(evaluation.data.terrainMode.enabled);
-      terrainToggle.addEventListener("change", ()=>{
-        evaluation.data.terrainMode.enabled = terrainToggle.checked;
-        if(terrainToggle.checked){
-          enforceSingleRefEverywhere();
-          ensureCurrentRound();
-        }
-        persist();
-        renderTerrainSection();
-        renderRotationPanel();
-        renderResultsTable();
+    if(terrainToggleBtn){
+      updateTerrainToggleButton();
+      terrainToggleBtn.addEventListener("click", ()=>{
+        toggleTerrainMode();
       });
     }
     if(terrainCountInput){
@@ -1374,10 +1371,48 @@
     btnSavePlayer?.addEventListener("click", savePlayerModal);
     btnNextRotation?.addEventListener("click", handleNextRotation);
     btnUndoRotation?.addEventListener("click", handleUndoRotation);
+    btnReadyNext?.addEventListener("click", ()=>{
+      hideRotationReadyPopup();
+      handleNextRotation();
+    });
+    btnReadyReview?.addEventListener("click", ()=>{
+      hideRotationReadyPopup();
+      if(resultsPanel){
+        resultsPanel.classList.remove("hidden");
+        resultsPanel.scrollIntoView({behavior:"smooth", block:"center"});
+      }
+    });
   }
 
   function clampTerrainCountInput(value){
     return window.EPSMatrix.clampTerrainCount ? window.EPSMatrix.clampTerrainCount(value) : Math.min(MAX_TERRAINS, Math.max(1, Math.floor(Number(value)||1)));
+  }
+
+  function toggleTerrainMode(force){
+    const mode = evaluation.data.terrainMode;
+    if(!mode) return;
+    const next = typeof force === "boolean" ? force : !mode.enabled;
+    if(mode.enabled === next) return;
+    mode.enabled = next;
+    if(next){
+      enforceSingleRefEverywhere();
+      ensureCurrentRound();
+    }else{
+      matchScoreDrafts.clear();
+      hideRotationReadyPopup();
+    }
+    persist();
+    renderTerrainSection();
+    renderRotationPanel();
+    renderResultsTable();
+  }
+
+  function updateTerrainToggleButton(){
+    if(!terrainToggleBtn) return;
+    const enabled = Boolean(evaluation.data.terrainMode?.enabled);
+    terrainToggleBtn.textContent = enabled ? "Désactiver le mode terrain" : "Activer le mode terrain";
+    terrainToggleBtn.classList.toggle("active", enabled);
+    terrainToggleBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
   }
 
   function initializeTerrains(){
@@ -1549,9 +1584,7 @@ function assignGroupsRoundRobin(count){
   function renderTerrainSection(){
     if(!terrainPanel || !terrainGrid) return;
     const mode = evaluation.data.terrainMode;
-    if(terrainToggle){
-      terrainToggle.checked = Boolean(mode.enabled);
-    }
+    updateTerrainToggleButton();
     if(terrainCountInput){
       terrainCountInput.value = mode.terrainCount;
       terrainCountInput.disabled = !mode.enabled;
@@ -1564,6 +1597,7 @@ function assignGroupsRoundRobin(count){
       terrainGrid.innerHTML = "";
       terrainDisabledHint?.classList.remove("hidden");
       renderMatchesList([]);
+      hideRotationReadyPopup();
       return;
     }
     terrainDisabledHint?.classList.add("hidden");
@@ -1727,6 +1761,7 @@ function assignGroupsRoundRobin(count){
     if(!btnNextRotation) return;
     if(!round || !round.matches?.length){
       btnNextRotation.setAttribute("disabled","disabled");
+      updateRotationReadyPopup(false);
       return;
     }
     const ready = round.matches.every((match)=>{
@@ -1734,6 +1769,7 @@ function assignGroupsRoundRobin(count){
       return match.status === "done";
     });
     btnNextRotation.toggleAttribute("disabled", !ready);
+    updateRotationReadyPopup(ready, round.round);
   }
 
   function updateUndoButton(){
@@ -1764,6 +1800,23 @@ function assignGroupsRoundRobin(count){
     const round = getCurrentRoundData();
     updateRotationCta(round);
     updateUndoButton();
+  }
+
+  function updateRotationReadyPopup(ready, roundNumber){
+    if(!rotationReadyPopup) return;
+    if(ready){
+      if(rotationReadyTitle){
+        rotationReadyTitle.textContent = roundNumber ? `Rotation #${roundNumber} prête` : "Rotation prête";
+      }
+      rotationReadyPopup.classList.remove("hidden");
+    }else{
+      hideRotationReadyPopup();
+    }
+  }
+
+  function hideRotationReadyPopup(){
+    if(!rotationReadyPopup) return;
+    rotationReadyPopup.classList.add("hidden");
   }
 
   function rotationMatchCard(match){

@@ -45,11 +45,8 @@
     <section class="terrainPanel" id="terrainPanel">
       <div class="terrainPanelHeader">
         <div class="terrainToggleRow">
-          <label>
-            <input type="checkbox" id="toggleTerrainMode" />
-            Mode terrain
-          </label>
-          <p class="muted smallText">Les terrains utilisent les groupes (G1 = Terrain 1).</p>
+          <button class="btn secondary" type="button" id="btnToggleTerrainMode">Activer le mode terrain</button>
+          <p class="muted smallText" id="terrainModeHint">Les terrains utilisent les groupes (G1 = Terrain 1).</p>
         </div>
         <div class="terrainConfig">
           <label>Nombre de terrains
@@ -78,6 +75,19 @@
       </div>
       <div id="rotationMatches" class="rotationMatches"></div>
     </section>
+    <aside class="rotationReadyPopup hidden" id="rotationReadyPopup">
+      <div class="popupCard">
+        <div>
+          <p class="muted tinyCaps">Scores validés</p>
+          <strong id="rotationReadyTitle">Tous les terrains sont prêts</strong>
+          <p class="muted" id="rotationReadyDesc">Tu peux lancer la rotation suivante ou revoir le classement avant de valider.</p>
+        </div>
+        <div class="popupActions">
+          <button class="btn secondary" type="button" id="btnReadyReview">↺ Retour aux résultats</button>
+          <button class="btn primary" type="button" id="btnReadyNext">Rotation suivante</button>
+        </div>
+      </div>
+    </aside>
     <div class="tableWrapper">
       <table>
         <thead><tr id="thead"></tr></thead>
