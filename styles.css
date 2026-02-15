@@ -1,73 +1,43 @@
-:root{
-  --bg:#ffffff;
-  --surface:#f9f9f9;
-  --surface-2:#f1f1f1;
-  --text:#1a1a1a;
-  --text-muted:#606770;
-  --border:#d8d8d8;
-  --accent:#1976d2;
-  --danger:#c62828;
-  --btn-bg:#e9eef6;
-  --btn-text:#1a1a1a;
-  --input-bg:#ffffff;
-  --input-text:#1a1a1a;
-  --placeholder:#8a8f98;
-  --green:#16a34a;
-  --orange:#f97316;
-  --red:#ef4444;
-  --modal-scrim:rgba(7,12,32,.65);
+:root {
+  --bg:#F2F2F7;
+  --surface:#FFFFFF;
+  --surface-2:#F6F6FA;
+  --text:#1C1C1E;
+  --text-muted:rgba(28,28,30,0.7);
+  --border:rgba(0,0,0,0.08);
+  --accent:#0A84FF;
+  --success:#34C759;
+  --danger:#FF3B30;
+  --modal-scrim:rgba(0,0,0,0.4);
   --terrain-0-bg:#f3d6d6;
   --terrain-1-bg:#d6f0e0;
   --terrain-2-bg:#f2eccb;
   --terrain-3-bg:#dcdaf0;
   --terrain-4-bg:#ecd6e8;
   --terrain-5-bg:#d6eaf3;
-  --terrain-text:#1a1a1a;
-  --action-primary:#2f6fed;
-  --action-success:#2e7d32;
-  --action-warning:#ef6c00;
-  --action-danger:#c62828;
-  --action-neutral:#e0e0e0;
-  --on-primary:#ffffff;
-  --on-success:#ffffff;
-  --on-warning:#ffffff;
-  --on-danger:#ffffff;
-  --on-neutral:#1a1a1a;
   --panel:var(--surface);
   --line:var(--border);
-  --navy:var(--text);
-  --blue:var(--accent);
   --muted:var(--text-muted);
-  font-family:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-family:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
 :root[data-theme="dark"],
-body[data-theme="dark"]{
-  --bg:#121212;
-  --surface:#1e1e1e;
-  --surface-2:#2a2a2a;
-  --text:#f5f5f5;
-  --text-muted:#c0c0c0;
-  --border:#333333;
-  --accent:#64b5f6;
-  --danger:#ef5350;
-  --btn-bg:#2a2f3a;
-  --btn-text:#f5f5f5;
-  --input-bg:#1e1e1e;
-  --input-text:#f5f5f5;
-  --placeholder:#a8adb7;
-  --modal-scrim:rgba(0,0,0,.75);
+body[data-theme="dark"] {
+  --bg:#1C1C1E;
+  --surface:#2C2C2E;
+  --surface-2:#3A3A3C;
+  --text:#F2F2F7;
+  --text-muted:rgba(242,242,247,0.7);
+  --border:rgba(255,255,255,0.08);
+  --accent:#0A84FF;
+  --success:#34C759;
+  --danger:#FF453A;
+  --modal-scrim:rgba(0,0,0,0.65);
   --terrain-0-bg:#5a2f2f;
   --terrain-1-bg:#2f5a44;
   --terrain-2-bg:#5a5530;
   --terrain-3-bg:#3a375a;
   --terrain-4-bg:#5a2f54;
   --terrain-5-bg:#2f4e5a;
-  --terrain-text:#f5f5f5;
-  --action-primary:#64b5f6;
-  --action-success:#66bb6a;
-  --action-warning:#ffa726;
-  --action-danger:#ef5350;
-  --action-neutral:#2a2a2a;
-  --on-neutral:#f5f5f5;
 }
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px;color:var(--text);--accent:var(--blue);transition:background .3s ease,color .3s ease;}
@@ -181,7 +151,7 @@ h1{font-size:clamp(2.5rem,6vw,4rem);margin:0;}
 .formShell{background:var(--panel);border-radius:30px;padding:32px;box-shadow:0 35px 90px rgba(12,38,85,.12);text-align:left;display:flex;flex-direction:column;gap:20px;color:var(--text);}
 .formGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
 .formGrid label{display:flex;flex-direction:column;font-weight:600;color:var(--muted);gap:6px;}
-.formGrid input,.formShell textarea{border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:1rem;font-family:inherit;background:var(--input-bg);color:var(--input-text);}
+.formGrid input,.formShell textarea{border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:1rem;font-family:inherit;background:var(--surface);color:var(--text);}
 .formShell textarea{min-height:160px;resize:vertical;}
 .formShell select{border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:1rem;font-family:inherit;background:#fff;}
 header.app{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:24px;}
@@ -219,7 +189,7 @@ option{color:var(--text);background:var(--surface);}
 .presenceToggle.disp.active{background:rgba(251,191,36,.25);border-color:#f59e0b;color:#92400e;}
 :root[data-theme="dark"] .presenceToggle.abs.active{color:#fecaca;}
 :root[data-theme="dark"] .presenceToggle.disp.active{color:#fde68a;}
-.groupPicker{width:auto;min-width:70px;max-width:110px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:var(--input-bg);font-weight:600;text-align:center;color:var(--input-text);}
+.groupPicker{width:auto;min-width:70px;max-width:110px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:var(--surface);font-weight:600;text-align:center;color:var(--text);}
 tbody tr.grouped td{background:var(--group-bg);}
 tbody tr.groupStart td{border-top:4px solid var(--group-sep);}
 tbody tr.isDispense td{background:#f1f5f9;color:#64748b;}
@@ -252,7 +222,6 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainGrid.inset{opacity:.35;pointer-events:none;}
 .modeHintText{margin-top:10px;color:var(--text-muted);font-size:0.95rem;}
 .terrainContent.hidden{display:none;}
-.placeholderIcon{font-size:1.4rem;}
 .terrainMatches{margin-top:24px;border:1px solid var(--line);border-radius:24px;padding:20px;background:var(--surface);color:var(--text);}
 .terrainCard{border:1px solid var(--line);border-radius:18px;padding:16px;background:var(--surface);display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(15,23,42,.08);color:var(--text);}
 .terrainCard.compact{gap:6px;}
