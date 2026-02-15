@@ -4,22 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>EPS Matrix – Évaluation</title>
-  <script>
-    (function(){
-      try{
-        const stored = localStorage.getItem('eps.matrix.theme');
-        if(stored){ document.documentElement.dataset.theme = stored; }
-      }catch(_e){}
-    })();
-  </script>
   <link rel="stylesheet" href="styles.css" />
-  <script defer src="theme.js"></script>
   <script defer src="app.js"></script>
   <script defer src="prompt-modal.js"></script>
   <script defer src="evaluation.js"></script>
 </head>
 <body>
-  <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
   <main class="card-full" style="gap:24px;">
     <header class="app">
       <div>
