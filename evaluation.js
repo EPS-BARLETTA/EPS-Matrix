@@ -1709,7 +1709,8 @@ function assignGroupsRoundRobin(count){
       </li>`;
     }).join("") : `<p class="muted smallText">Aucun joueur affecté.</p>`;
     const refBlock = ref ? `<p class="terrainLabel">Arbitre : <strong>${escapeHtml(ref.name)}</strong></p>` : `<p class="terrainLabel">Aucun arbitre</p>`;
-    return `<article class="terrainCard" data-group="${group.index}">
+    const colorBucket = (group.index - 1) % 6;
+    return `<article class="terrainCard" data-group="${group.index}" data-terrain-color="${colorBucket}">
       <header>
         <div>
           <h3>${group.label}</h3>
