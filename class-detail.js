@@ -25,18 +25,7 @@
   document.getElementById("classMeta").textContent = `Prof ${cls.teacher || "—"} • ${cls.students.length} élèves • Site ${cls.site || "—"}`;
 
   const btnNewEval = document.getElementById("btnNewEval");
-  btnNewEval.addEventListener("click", ()=>{
-    const input = prompt("Champ d'apprentissage ? (CA1, CA2, CA3, CA4, CA5 ou BLOC pour Bloc note)", "CA4");
-    if(!input) return;
-    const value = input.trim().toUpperCase();
-    if(value.startsWith("BLOC") || value === "NOTE"){
-      window.location.href = `notes.html?class=${cls.id}`;
-      return;
-    }
-    const field = window.EPSMatrix.LEARNING_FIELDS.find((lf)=>lf.id === value);
-    const chosen = field && field.id !== "NOTE" ? field.id : "CA4";
-    window.location.href = `evaluation.html?class=${cls.id}&field=${chosen}`;
-  });
+  btnNewEval.addEventListener("click", ()=>handleNewEvaluationRequest());
 
   const btnDeleteClass = document.getElementById("btnDeleteClass");
   btnDeleteClass.addEventListener("click", ()=>{
@@ -225,5 +214,29 @@
   function normalizeField(id){
     if(window.EPSMatrix.LEARNING_FIELDS.some((lf)=>lf.id === id)) return id;
     return "NOTE";
+  }
+  async function handleNewEvaluationRequest(){
+    let input = null;
+    if(window.EPSPrompt?.prompt){
+      input = await window.EPSPrompt.prompt({
+        title:"Champ d'apprentissage",
+        message:"Entre CA1 à CA5 pour créer une évaluation ou NOTE pour ouvrir le bloc note.",
+        defaultValue:"CA4",
+        placeholder:"CA1, CA2, CA3...",
+        allowEmpty:false
+      });
+    }else{
+      console.warn("Module de saisie indisponible, fallback sur prompt natif.");
+      input = window.prompt("Champ d'apprentissage (modale indisponible)", "CA4");
+    }
+    if(!input) return;
+    const value = input.trim().toUpperCase();
+    if(value.startsWith("BLOC") || value === "NOTE"){
+      window.location.href = `notes.html?class=${cls.id}`;
+      return;
+    }
+    const field = window.EPSMatrix.LEARNING_FIELDS.find((lf)=>lf.id === value);
+    const chosen = field && field.id !== "NOTE" ? field.id : "CA4";
+    window.location.href = `evaluation.html?class=${cls.id}&field=${chosen}`;
   }
 })();

@@ -1,4 +1,4 @@
-(function(){
+(async function(){
   const params = new URLSearchParams(window.location.search);
   const classId = params.get("class");
   if(!classId){ window.location.href = "classes.html"; return; }
@@ -9,30 +9,12 @@
   if(!cls){ window.location.href = "classes.html"; return; }
 
   if(!evalId && field){
-    const defaultSuggestion = "";
-    const activityInput = prompt("Nom de l'évaluation", defaultSuggestion) || "";
-    const activity = activityInput.trim() || `Évaluation ${new Date().toLocaleDateString("fr-FR")}`;
-    const criteria = [];
-    const evaluation = {
-      id: window.EPSMatrix.genId("eval"),
-      activity: activity || "Évaluation",
-      learningField: field,
-      status: "active",
-      createdAt: Date.now(),
-      archivedAt: null,
-      data:{
-        meta:{classe:cls.name, activity:activity||"Évaluation", enseignant:cls.teacher, site:cls.site, date:new Date().toLocaleDateString("fr-FR")},
-        baseFields: window.EPSMatrix.DEFAULT_BASE_FIELDS.slice(),
-        criteria,
-        students: cls.students.map((stu)=>window.EPSMatrix.createEvalStudent(stu.name, criteria)),
-        scoring: {},
-        savedAt: Date.now(),
-        showNote: false
-      }
-    };
-    cls.evaluations.unshift(evaluation);
-    window.EPSMatrix.saveState(state);
-    evalId = evaluation.id;
+    const createdEvaluation = await createEvaluationFromField(field);
+    if(!createdEvaluation){
+      window.location.href = `class.html?class=${classId}`;
+      return;
+    }
+    evalId = createdEvaluation.id;
   }
 
   const evaluation = cls.evaluations.find((ev)=>ev.id === evalId);
@@ -66,7 +48,7 @@
   const evalMetaEl = document.getElementById("evalMeta");
   evalTitleEl?.setAttribute("title", "Cliquer pour renommer l'évaluation");
   renderHeader();
-  evalTitleEl?.addEventListener("click", promptRenameEvaluation);
+  evalTitleEl?.addEventListener("click", ()=>{ promptRenameEvaluation(); });
 
   function renderHeader(){
     const dateLabel = formatEvalDate(evaluation.createdAt);
@@ -83,9 +65,16 @@
     return date.toLocaleDateString("fr-FR", {weekday:"short", day:"2-digit", month:"2-digit", year:"numeric"});
   }
 
-  function promptRenameEvaluation(){
+  async function promptRenameEvaluation(){
     const current = evaluation.activity || "";
-    const next = prompt("Renommer l'évaluation", current);
+    const next = await openTextPrompt({
+      title:"Renommer l'évaluation",
+      message:"Saisis le nouveau titre.",
+      defaultValue: current,
+      placeholder:"Évaluation escalade",
+      allowEmpty:false,
+      treatCancelAsEmpty:false
+    });
     if(next === null) return;
     const trimmed = next.trim();
     if(!trimmed || trimmed === current) return;
@@ -256,17 +245,7 @@
   }
 
   function computeScore(stu){
-    let total = 0;
-    let max = 0;
-    evaluation.data.criteria.forEach((crit)=>{
-      const map = evaluation.data.scoring[crit.id] || {};
-      const opts = Object.keys(map);
-      const maxField = opts.length ? Math.max(...opts.map((key)=>Number(map[key])||0)) : 0;
-      max += maxField;
-      total += Number(map[stu[crit.id]||""])||0;
-    });
-    if(!max) return "—";
-    return ((total/max)*20).toFixed(1);
+    return window.EPSMatrix.computeStudentNote(evaluation, stu);
   }
 
   function statusHTML(stu){
@@ -470,8 +449,13 @@
       const options = getOptionsForCriterion(crit, info).filter(Boolean);
       const previous = evaluation.data.scoring[crit.id] || {};
       nextScoring[crit.id] = {};
-      options.forEach((opt, idx)=>{
-        nextScoring[crit.id][opt] = (typeof previous[opt] !== "undefined") ? Number(previous[opt])||0 : Math.max(options.length-idx,1);
+      options.forEach((opt)=>{
+        if(Object.prototype.hasOwnProperty.call(previous, opt)){
+          const parsed = Number(previous[opt]);
+          nextScoring[crit.id][opt] = Number.isFinite(parsed) ? parsed : 0;
+        }else{
+          nextScoring[crit.id][opt] = 0;
+        }
       });
     });
     evaluation.data.scoring = nextScoring;
@@ -539,8 +523,8 @@
     const reader = new FileReader();
     reader.onload = ()=>{
       try{
-        applyImportedCsv(reader.result);
-        alert("Import CSV terminé.");
+        const report = applyImportedCsv(reader.result);
+        alert(report);
       }catch(err){
         console.error(err);
         alert("Impossible de lire ce CSV. Vérifie qu'il provient de l'export EPS Matrix.");
@@ -558,15 +542,47 @@
     const baseFields = getActiveBaseFields();
     const criteria = evaluation.data.criteria;
     const headerMap = {};
-    header.forEach((title, idx)=>{ headerMap[title.toLowerCase()] = idx; });
-    if(headerMap["prenom"] === undefined) throw new Error("Colonne prénom manquante");
-    lines.slice(1).forEach((line)=>{
+    header.forEach((title, idx)=>{ headerMap[title.trim().toLowerCase()] = idx; });
+    const prenomIdx = headerMap["prenom"];
+    if(typeof prenomIdx === "undefined") throw new Error("Colonne prénom manquante");
+    const groupIdx = headerMap["groupe"];
+    const studentIdIdx = headerMap["student_id"];
+    const studentById = new Map();
+    const nameBuckets = new Map();
+    evaluation.data.students.forEach((stu)=>{
+      if(stu.id){ studentById.set(String(stu.id), stu); }
+      const key = window.EPSMatrix.normalizeStudentKey(stu.name);
+      if(!key) return;
+      if(!nameBuckets.has(key)){ nameBuckets.set(key, []); }
+      nameBuckets.get(key).push(stu);
+    });
+    const report = {updated:0, unknownId:0, ambiguous:0, unknownName:0};
+    lines.slice(1).forEach((line, rowIdx)=>{
       if(!line.trim()) return;
       const cells = parseCsvLine(line);
-      const name = cells[headerMap["prenom"]] || "";
-      const student = evaluation.data.students.find((stu)=>stu.name === name);
+      const studentId = typeof studentIdIdx !== "undefined" ? (cells[studentIdIdx]||"").trim() : "";
+      let student = null;
+      if(studentId){
+        student = studentById.get(studentId);
+        if(!student){ report.unknownId++; }
+      }
+      const nameRaw = cells[prenomIdx] || "";
+      if(!student){
+        const normalized = window.EPSMatrix.normalizeStudentKey(nameRaw);
+        if(normalized){
+          const matches = nameBuckets.get(normalized) || [];
+          if(matches.length === 1){
+            student = matches[0];
+          }else if(matches.length > 1){
+            report.ambiguous++;
+          }else if(nameRaw.trim()){
+            report.unknownName++;
+          }
+        }else if(nameRaw.trim()){
+          report.unknownName++;
+        }
+      }
       if(!student) return;
-      const groupIdx = headerMap["groupe"];
       if(groupIdx !== undefined){ student.groupTag = cells[groupIdx] || ""; }
       baseFields.forEach((field)=>{
         const idx = header.indexOf(field.label);
@@ -576,9 +592,16 @@
         const idx = header.indexOf(crit.label);
         if(idx !== -1){ student[crit.id] = cells[idx] || ""; }
       });
+      report.updated++;
     });
     persist();
     render();
+    return [
+      `${report.updated} élève(s) mis à jour.`,
+      report.unknownId ? `${report.unknownId} identifiant(s) non reconnus.` : "",
+      report.ambiguous ? `${report.ambiguous} nom(s) ambigus (doublons).` : "",
+      report.unknownName ? `${report.unknownName} nom(s) introuvables.` : ""
+    ].filter(Boolean).join("\n") || "Import CSV terminé.";
   }
 
   function parseCsvLine(line){
@@ -621,6 +644,70 @@
   function persist(){
     evaluation.data.savedAt = Date.now();
     window.EPSMatrix.saveState(state);
+  }
+
+  async function createEvaluationFromField(fieldId){
+    const activityInput = await openTextPrompt({
+      title:"Nom de l'évaluation",
+      message:"Indique un titre pour cette évaluation.",
+      defaultValue:"",
+      placeholder:"Escalade 5e",
+      allowEmpty:true,
+      treatCancelAsEmpty:true
+    });
+    const label = (activityInput || "").trim() || `Évaluation ${new Date().toLocaleDateString("fr-FR")}`;
+    const criteria = [];
+    const evaluation = {
+      id: window.EPSMatrix.genId("eval"),
+      activity: label || "Évaluation",
+      learningField: fieldId,
+      status: "active",
+      createdAt: Date.now(),
+      archivedAt: null,
+      data:{
+        meta:{
+          classe:cls.name,
+          activity:label||"Évaluation",
+          enseignant:cls.teacher,
+          site:cls.site,
+          date:new Date().toLocaleDateString("fr-FR")
+        },
+        baseFields: window.EPSMatrix.DEFAULT_BASE_FIELDS.slice(),
+        criteria,
+        students: cls.students.map((stu)=>window.EPSMatrix.createEvalStudent(stu.name, criteria)),
+        scoring: window.EPSMatrix.buildDefaultScoring(criteria),
+        savedAt: Date.now(),
+        showNote: false
+      }
+    };
+    cls.evaluations.unshift(evaluation);
+    window.EPSMatrix.saveState(state);
+    return evaluation;
+  }
+
+  async function openTextPrompt(options){
+    const modalOptions = {
+      title: options?.title || "Saisie",
+      message: options?.message || "",
+      defaultValue: options?.defaultValue || "",
+      placeholder: options?.placeholder || "",
+      allowEmpty: Boolean(options?.allowEmpty)
+    };
+    if(window.EPSPrompt?.prompt){
+      const result = await window.EPSPrompt.prompt(modalOptions);
+      if(result === null && options?.treatCancelAsEmpty){
+        return "";
+      }
+      return result;
+    }
+    console.warn("Module de saisie indisponible, fallback sur prompt natif.");
+    const lines = [`${modalOptions.title} – modale indisponible.`];
+    if(modalOptions.message){ lines.push(modalOptions.message); }
+    const fallback = window.prompt(lines.join("\n"), modalOptions.defaultValue);
+    if(fallback === null){
+      return options?.treatCancelAsEmpty ? "" : null;
+    }
+    return fallback;
   }
 
   function getActiveBaseFields(){

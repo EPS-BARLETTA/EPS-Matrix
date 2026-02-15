@@ -3,6 +3,10 @@ if(typeof structuredClone !== "function"){ window.structuredClone = (obj)=>JSON.
 const DEFAULT_CLASS_COLOR = "#1c5bff";
 const LISTE_DEFAULT = ["Niels","Valentina","Camille","Lea","Cecilia","Koray","Myla","Julie","Olivia","Gaia","Daria","Gabrielle","Evan","Anika","Marc","Emma","Auguste","Ysé","Victoria","Kenji","Tao","Edgar","Rafael","Bruno","Constance","Charlotte"];
 const ARCHIVE_VERSION = 1;
+const LEGACY_SCHEMA_VERSION = 1;
+const STUDENT_ID_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = STUDENT_ID_SCHEMA_VERSION;
+const SCHEMA_MIGRATIONS = {};
 const LEARNING_FIELDS = [
   {id:"CA1", title:"CA1 – Produire une performance optimale", desc:"Produire une performance optimale, mesurable à une échéance donnée.", color:"#0ea5e9"},
   {id:"CA2", title:"CA2 – Adapter ses déplacements", desc:"Adapter ses déplacements à des environnements variés.", color:"#14b8a6"},
@@ -39,7 +43,7 @@ function loadState(){
       if(fallback) return structuredClone(fallback);
       return defaultState();
     }
-    const parsed = JSON.parse(raw);
+    const parsed = migrateState(JSON.parse(raw));
     parsed.classes = Array.isArray(parsed.classes) && parsed.classes.length ? parsed.classes : defaultState().classes;
     parsed.classes.forEach((cls)=>{
       cls.students = (cls.students||[]).map((s)=>({id:s.id||genId("stu"), name:s.name||""}));
@@ -59,7 +63,102 @@ function loadState(){
 }
 
 function defaultState(){
-  return {classes:[]};
+  return {schemaVersion: CURRENT_SCHEMA_VERSION, classes:[]};
+}
+
+/**
+ * Migrate persisted state to CURRENT_SCHEMA_VERSION.
+ * Versions:
+ * 1 – legacy structure without explicit schemaVersion.
+ */
+function migrateState(state){
+  if(!state || typeof state !== "object"){
+    return defaultState();
+  }
+  const nextState = state;
+  let version = Number.isInteger(nextState.schemaVersion) ? nextState.schemaVersion : LEGACY_SCHEMA_VERSION;
+  if(version < LEGACY_SCHEMA_VERSION){
+    version = LEGACY_SCHEMA_VERSION;
+  }
+  nextState.schemaVersion = version;
+  if(!Array.isArray(nextState.classes)){ nextState.classes = []; }
+  while(version < CURRENT_SCHEMA_VERSION){
+    const migrator = SCHEMA_MIGRATIONS[version];
+    if(typeof migrator === "function"){
+      migrator(nextState);
+      version += 1;
+      nextState.schemaVersion = version;
+    }else{
+      console.warn("Migration manquante, passage forcé à la version courante.", version);
+      version = CURRENT_SCHEMA_VERSION;
+      nextState.schemaVersion = version;
+    }
+  }
+  return nextState;
+}
+
+SCHEMA_MIGRATIONS[LEGACY_SCHEMA_VERSION] = migrateLegacyStudentsToV2;
+
+function migrateLegacyStudentsToV2(state){
+  if(!state || !Array.isArray(state.classes)) return;
+  let ambiguousTotal = 0;
+  let unmatchedTotal = 0;
+  state.classes.forEach((cls)=>{
+    if(!cls || typeof cls !== "object") return;
+    if(!Array.isArray(cls.students)){ cls.students = []; }
+    cls.students.forEach(ensureStudentHasId);
+    const classStudentRefs = new Set(cls.students);
+    const nameBuckets = buildStudentNameBuckets(cls.students);
+    if(!Array.isArray(cls.evaluations)){ cls.evaluations = []; }
+    cls.evaluations.forEach((evaluation)=>{
+      const evalStudents = evaluation?.data?.students;
+      if(!Array.isArray(evalStudents)) return;
+      evalStudents.forEach((stu)=>{
+        if(!stu || stu.id) return;
+        if(classStudentRefs.has(stu)){
+          ensureStudentHasId(stu);
+          return;
+        }
+        const key = normalizeStudentKey(stu.name);
+        const matches = key ? nameBuckets.get(key) : null;
+        if(matches && matches.length === 1){
+          stu.id = matches[0].id;
+          return;
+        }
+        if(matches && matches.length > 1){
+          ambiguousTotal++;
+        }else{
+          unmatchedTotal++;
+        }
+        stu.id = genId("stu");
+        stu.migrationUnmatched = true;
+      });
+    });
+  });
+  if(ambiguousTotal || unmatchedTotal){
+    console.warn(`Migration student_id : ${ambiguousTotal} élève(s) ambigu(s), ${unmatchedTotal} non apparié(s).`);
+  }
+}
+
+function ensureStudentHasId(student){
+  if(student && !student.id){
+    student.id = genId("stu");
+  }
+}
+
+function buildStudentNameBuckets(students){
+  const buckets = new Map();
+  if(!Array.isArray(students)) return buckets;
+  students.forEach((student)=>{
+    if(!student) return;
+    const key = normalizeStudentKey(student.name);
+    if(!key) return;
+    if(!buckets.has(key)){
+      buckets.set(key, []);
+    }
+    buckets.get(key).push(student);
+  });
+  return buckets;
 }
 
 function normalizeEvaluation(ev, cls){
@@ -84,7 +183,7 @@ function normalizeEvaluation(ev, cls){
       baseFields,
       criteria,
       students,
-      scoring: ev.data?.scoring || buildDefaultScoring(criteria),
+      scoring: normalizeScoringForCriteria(criteria, ev.data?.scoring),
       savedAt: ev.data?.savedAt || Date.now(),
       showNote: ev.data?.showNote === true
     }
@@ -92,20 +191,59 @@ function normalizeEvaluation(ev, cls){
 }
 
 function computeEvaluationScore(evaluation, stu){
-  if(!evaluation?.data) return "";
-  const criteria = evaluation.data.criteria || [];
-  if(!criteria.length) return "";
-  const scoring = evaluation.data.scoring || {};
+  const note = computeStudentNote(evaluation, stu);
+  return note === "—" ? "" : note;
+}
+
+function computeCriterionOptions(crit){
+  const info = CRITERIA_TYPES[crit.type] || {};
+  if(info.isComment) return [];
+  if(info.isCustom){
+    return Array.isArray(crit.options) ? crit.options.filter(Boolean) : [];
+  }
+  if(Array.isArray(info.options)){
+    return info.options.filter((opt)=>opt !== "");
+  }
+  return [];
+}
+
+function computeCriterionMaxValue(crit, scoringMap){
+  if(!crit) return 0;
+  const options = computeCriterionOptions(crit);
+  const map = scoringMap || {};
+  if(options.length){
+    let localMax = 0;
+    options.forEach((opt)=>{
+      const value = Number(map[opt]) || 0;
+      if(value > localMax) localMax = value;
+    });
+    return localMax;
+  }
+  const values = Object.values(map).map((value)=>Number(value)||0);
+  return values.length ? Math.max(...values) : 0;
+}
+
+function computeStudentRawScore(evaluation, student){
+  const criteria = evaluation?.data?.criteria || [];
+  if(!criteria.length){
+    return {total:0, max:0};
+  }
+  const scoring = evaluation?.data?.scoring || {};
   let total = 0;
   let max = 0;
   criteria.forEach((crit)=>{
     const map = scoring[crit.id] || {};
-    const opts = Object.keys(map);
-    const localMax = opts.length ? Math.max(...opts.map((key)=>Number(map[key])||0)) : 0;
-    max += localMax;
-    total += Number(map[stu?.[crit.id]||""])||0;
+    const criterionMax = computeCriterionMaxValue(crit, map);
+    max += criterionMax;
+    const value = Number(map[student?.[crit.id]] || 0);
+    total += value;
   });
-  if(!max) return "";
+  return {total, max};
+}
+
+function computeStudentNote(evaluation, student){
+  const {total, max} = computeStudentRawScore(evaluation, student);
+  if(!max) return "—";
   return ((total/max)*20).toFixed(1);
 }
 
@@ -131,11 +269,12 @@ function buildEvaluationCsv(evaluation){
     .map((id)=>BASE_FIELDS.find((field)=>field.id === id))
     .filter(Boolean);
   const criteria = evaluation.data.criteria || [];
-  const header = ["prenom","groupe", ...baseFields.map((field)=>field.label), ...criteria.map((crit)=>crit.label || "Critère"), "note","statut"];
+  const header = ["student_id","prenom","groupe", ...baseFields.map((field)=>field.label), ...criteria.map((crit)=>crit.label || "Critère"), "note","statut"];
   const rows = (evaluation.data.students || []).map((stu)=>{
     const baseValues = baseFields.map((field)=>String(stu?.[field.id]||"").replace(/\n/g," "));
     const critValues = criteria.map((crit)=>String(stu?.[crit.id]||"").replace(/\n/g," "));
     return [
+      stu?.id || "",
       stu?.name || "",
       stu?.groupTag || "",
       ...baseValues,
@@ -231,12 +370,36 @@ function importEvaluationArchive(state, raw){
   return {cls, evaluation: normalized};
 }
 
-function buildDefaultScoring(){
-  return {};
+function buildDefaultScoring(criteria){
+  return normalizeScoringForCriteria(criteria, {});
+}
+
+function normalizeScoringForCriteria(criteria, sourceScoring){
+  if(!Array.isArray(criteria) || !criteria.length) return {};
+  const normalized = {};
+  const base = (sourceScoring && typeof sourceScoring === "object") ? sourceScoring : {};
+  criteria.forEach((crit)=>{
+    const options = computeCriterionOptions(crit);
+    if(!options.length) return;
+    const existing = base[crit.id] || {};
+    normalized[crit.id] = {};
+    options.forEach((opt)=>{
+      if(Object.prototype.hasOwnProperty.call(existing, opt)){
+        const parsed = typeof existing[opt] === "number" ? existing[opt] : Number(existing[opt]);
+        normalized[crit.id][opt] = Number.isFinite(parsed) ? parsed : 0;
+      }else{
+        normalized[crit.id][opt] = 0;
+      }
+    });
+  });
+  return normalized;
 }
 
 function saveState(state){
   try{
+    if(state && typeof state === "object"){
+      state.schemaVersion = CURRENT_SCHEMA_VERSION;
+    }
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     window.__EPS_FALLBACK_STATE = structuredClone(state);
   }catch(e){
@@ -263,6 +426,17 @@ function formatStudentName(raw){
 function capitalize(word){ return word ? word.charAt(0).toUpperCase()+word.slice(1).toLowerCase() : ""; }
 function parseNames(text=""){ return text.split(/\r?\n|;|,|\t/).map(formatStudentName).filter(Boolean); }
 
+function normalizeStudentKey(name=""){
+  if(!name) return "";
+  let normalized = name;
+  try{
+    normalized = normalized.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  }catch(_e){
+    normalized = name;
+  }
+  return normalized.toLowerCase().replace(/\s+/g," ").trim();
+}
+
 window.EPSMatrix = {
   loadState,
   saveState,
@@ -279,15 +453,21 @@ window.EPSMatrix = {
   createEvalStudent,
   parseNames,
   formatStudentName,
+  normalizeStudentKey,
   genId,
   normalizeEvaluation,
   normalizeNotes,
+  normalizeScoringForCriteria,
   computeEvaluationScore,
   isStudentValidated,
   buildEvaluationCsv,
   serializeEvaluationArchive,
   parseEvaluationArchive,
   importEvaluationArchive,
+  computeCriterionOptions,
+  computeCriterionMaxValue,
+  computeStudentRawScore,
+  computeStudentNote,
   sanitizeFileName,
   ARCHIVE_VERSION
 };
