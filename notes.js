@@ -16,6 +16,9 @@
   if(!cls.notes){ cls.notes = window.EPSMatrix.createEmptyNotes(); }
   const notes = cls.notes;
   if(!Array.isArray(notes.stickies)){ notes.stickies = []; }
+  if(typeof notes.sketchColor !== "string"){ notes.sketchColor = "#0b2a6d"; }
+  if(typeof notes.sketchWidth !== "number"){ notes.sketchWidth = 4; }
+  if(typeof notes.sketchTool !== "string"){ notes.sketchTool = "pen"; }
   ensureSketchStructure();
 
   document.getElementById("notesTitle").textContent = `Bloc note – ${cls.name}`;
@@ -35,10 +38,22 @@
   const btnDeleteSketchPage = document.getElementById("btnDeleteSketchPage");
   const btnRenameSketchPage = document.getElementById("btnRenameSketchPage");
   const sketchTabs = document.getElementById("sketchTabs");
+  const sketchToolbar = document.querySelector(".sketchToolbar");
+  const sketchOptions = document.querySelector(".sketchOptions");
   const sketchShell = document.getElementById("sketchShell");
   const canvas = document.getElementById("sketchCanvas");
   const ctx = canvas?.getContext("2d") || null;
   const hasCanvas = Boolean(canvas && ctx);
+  const btnToolPen = document.getElementById("btnToolPen");
+  const btnToolEraser = document.getElementById("btnToolEraser");
+  const btnExitFullscreen = document.getElementById("btnExitFullscreen");
+  const colorPalette = document.getElementById("sketchColorPalette");
+  const sizePalette = document.getElementById("sketchSizePalette");
+  const COLOR_PRESETS = ["#0b2a6d","#000000","#f97316","#ef4444","#16a34a","#0ea5e9","#a855f7","#fef08a"];
+  const SIZE_PRESETS = [2,4,6,10,14];
+  let currentColor = notes.sketchColor || "#0b2a6d";
+  let currentWidth = notes.sketchWidth || 4;
+  let currentTool = notes.sketchTool || "pen";
   let drawing = false;
   let fullscreen = false;
   if(hasCanvas){
@@ -54,7 +69,13 @@
   renderTable();
   renderStickies();
   renderSketchTabs();
+  renderColorPalette();
+  renderSizePalette();
+  updateToolButtons();
+  updateExitButton();
+  updateFloatingPanels();
   if(hasCanvas){
+    applyStrokePrefs();
     fitCanvas();
     window.addEventListener("resize", ()=>{
       saveCurrentCanvas();
@@ -105,6 +126,11 @@
   btnDeleteSketchPage?.addEventListener("click", deleteSketchPage);
   btnFullscreenSketch?.addEventListener("click", toggleFullscreenSketch);
   btnExportSketch?.addEventListener("click", exportCurrentSketch);
+  btnToolPen?.addEventListener("click", ()=>setTool("pen"));
+  btnToolEraser?.addEventListener("click", ()=>setTool("eraser"));
+  btnExitFullscreen?.addEventListener("click", ()=>{
+    if(fullscreen){ toggleFullscreenSketch(); }
+  });
   sketchTabs?.addEventListener("click", (event)=>{
     const tab = event.target.closest("button[data-page]");
     if(!tab) return;
@@ -157,6 +183,7 @@
   if(hasCanvas){
     canvas.addEventListener("pointerdown", (event)=>{
       drawing = true;
+      applyStrokePrefs();
       const pos = pointerPos(event);
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
@@ -216,6 +243,7 @@
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#0b2a6d";
     ctx.clearRect(0,0,canvas.width,canvas.height);
+    applyStrokePrefs();
     restoreSketch();
   }
 
@@ -327,6 +355,8 @@
     if(btnFullscreenSketch){
       btnFullscreenSketch.textContent = fullscreen ? "Quitter plein écran" : "Plein écran";
     }
+    updateExitButton();
+    updateFloatingPanels();
     fitCanvas();
   }
 
@@ -370,6 +400,80 @@
     const factory = window.EPSMatrix && window.EPSMatrix.createSketchPage;
     if(typeof factory === "function") return factory(title);
     return {id:window.EPSMatrix.genId("sketch"), title:title || "Page stylet", data:null, createdAt:Date.now(), updatedAt:null};
+  }
+
+  function renderColorPalette(){
+    if(!colorPalette) return;
+    colorPalette.innerHTML = COLOR_PRESETS.map((color)=>`<button type="button" data-color="${color}" class="${color===currentColor?"active":""}" style="background:${color};"></button>`).join("");
+    colorPalette.querySelectorAll("button").forEach((btn)=>{
+      btn.addEventListener("click", ()=>{
+        const color = btn.dataset.color;
+        if(!color) return;
+        setColor(color);
+      });
+    });
+  }
+
+  function renderSizePalette(){
+    if(!sizePalette) return;
+    sizePalette.innerHTML = SIZE_PRESETS.map((size)=>`<button type="button" data-size="${size}" class="${size===currentWidth?"active":""}">${size}px</button>`).join("");
+    sizePalette.querySelectorAll("button").forEach((btn)=>{
+      btn.addEventListener("click", ()=>{
+        const size = Number(btn.dataset.size);
+        if(!size) return;
+        setStrokeWidth(size);
+      });
+    });
+  }
+
+  function setTool(tool){
+    currentTool = tool;
+    notes.sketchTool = tool;
+    updateToolButtons();
+    applyStrokePrefs();
+    persist();
+  }
+
+  function setColor(color){
+    currentColor = color;
+    notes.sketchColor = color;
+    if(currentTool !== "pen") setTool("pen");
+    renderColorPalette();
+    applyStrokePrefs();
+    persist();
+  }
+
+  function setStrokeWidth(width){
+    currentWidth = width;
+    notes.sketchWidth = width;
+    renderSizePalette();
+    applyStrokePrefs();
+    persist();
+  }
+
+  function updateToolButtons(){
+    btnToolPen?.classList.toggle("active", currentTool === "pen");
+    btnToolEraser?.classList.toggle("active", currentTool === "eraser");
+  }
+
+  function updateExitButton(){
+    if(!btnExitFullscreen) return;
+    btnExitFullscreen.classList.toggle("hidden", !fullscreen);
+  }
+
+  function updateFloatingPanels(){
+    const floating = Boolean(fullscreen);
+    sketchOptions?.classList.toggle("floating", floating);
+    sketchToolbar?.classList.toggle("floating", floating);
+  }
+
+  function applyStrokePrefs(){
+    if(!hasCanvas) return;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.globalCompositeOperation = currentTool === "eraser" ? "destination-out" : "source-over";
+    ctx.lineWidth = currentTool === "eraser" ? Math.max(currentWidth * 1.6, currentWidth + 4) : currentWidth;
+    ctx.strokeStyle = currentTool === "eraser" ? "#000" : currentColor;
   }
   }
 })();

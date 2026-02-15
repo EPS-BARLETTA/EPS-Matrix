@@ -74,6 +74,27 @@
             <button class="btn secondary danger" id="btnDeleteSketchPage" type="button">Supprimer</button>
           </div>
         </div>
+        <div class="sketchOptions">
+          <div class="sketchToolsRow">
+            <div class="sketchToolButtons">
+              <button class="btn secondary active" id="btnToolPen" type="button">Stylet</button>
+              <button class="btn secondary" id="btnToolEraser" type="button">Gomme</button>
+            </div>
+            <div class="sketchActions">
+              <button class="btn secondary hidden" id="btnExitFullscreen" type="button">Quitter plein écran</button>
+            </div>
+          </div>
+          <div class="sketchPalettes">
+            <div>
+              <p class="muted smallTitle">Couleur</p>
+              <div id="sketchColorPalette" class="sketchPalette"></div>
+            </div>
+            <div>
+              <p class="muted smallTitle">Épaisseur</p>
+              <div id="sketchSizePalette" class="sketchSizes"></div>
+            </div>
+          </div>
+        </div>
         <div class="sketchShell" id="sketchShell">
           <canvas id="sketchCanvas" width="900" height="360"></canvas>
         </div>
