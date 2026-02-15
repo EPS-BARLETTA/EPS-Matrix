@@ -3,6 +3,7 @@ if(typeof structuredClone !== "function"){ window.structuredClone = (obj)=>JSON.
 const DEFAULT_CLASS_COLOR = "#1c5bff";
 const LISTE_DEFAULT = ["Niels","Valentina","Camille","Lea","Cecilia","Koray","Myla","Julie","Olivia","Gaia","Daria","Gabrielle","Evan","Anika","Marc","Emma","Auguste","Ysé","Victoria","Kenji","Tao","Edgar","Rafael","Bruno","Constance","Charlotte"];
 const ARCHIVE_VERSION = 1;
+const MAX_TERRAINS = 8;
 const LEGACY_SCHEMA_VERSION = 1;
 const STUDENT_ID_SCHEMA_VERSION = 2;
 const CURRENT_SCHEMA_VERSION = STUDENT_ID_SCHEMA_VERSION;
