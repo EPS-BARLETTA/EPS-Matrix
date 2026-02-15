@@ -258,6 +258,8 @@
   function exportClassBackup(){
     try{
       const payload = {
+        app: "EPS Matrix",
+        formatVersion: 1,
         kind: "epsmatrix.classBackup",
         backupAt: new Date().toISOString(),
         schemaVersion: window.EPSMatrix.CURRENT_SCHEMA_VERSION,
@@ -265,7 +267,7 @@
       };
       const safeName = window.EPSMatrix.sanitizeFileName(cls.name || "Classe");
       const filename = `EPSMatrix_${safeName}_${formatTimestamp(new Date())}.epsbackup.json`;
-      downloadFile(filename, JSON.stringify(payload, null, 2));
+      downloadContent(filename, JSON.stringify(payload, null, 2), "application/json");
     }catch(err){
       console.error("Export classe impossible", err);
       alert("Impossible de sauvegarder cette classe.");
@@ -277,13 +279,19 @@
     if(!file) return;
     const reader = new FileReader();
     reader.onload = ()=>{
+      let payload;
       try{
-        const payload = JSON.parse(reader.result);
-        if(payload?.kind !== "epsmatrix.classBackup"){
-          throw new Error("Fichier incompatible");
-        }
-        const migratedClass = migrateClassPayload(payload);
-        const suffix = formatRestoreLabel(payload.backupAt);
+        payload = JSON.parse(reader.result);
+      }catch(err){
+        console.error("Import classe impossible (JSON)", err);
+        alert("Fichier illisible (JSON invalide)");
+        event.target.value = "";
+        return;
+      }
+      try{
+        const envelope = normalizeClassBackupEnvelope(payload);
+        const migratedClass = migrateClassPayload(envelope);
+        const suffix = formatRestoreLabel(envelope.backupAt);
         const report = mergeClassBackup(migratedClass, suffix);
         window.EPSMatrix.saveState(state);
         updateClassHeader();
@@ -291,7 +299,11 @@
         alert(report);
       }catch(err){
         console.error("Import classe impossible", err);
-        alert("Impossible de restaurer cette sauvegarde de classe.");
+        if(err.userMessage){
+          alert(err.userMessage);
+        }else{
+          alert(`Restauration échouée: ${err.message || err}`);
+        }
       }finally{
         event.target.value = "";
       }
@@ -300,16 +312,29 @@
   }
 
   function migrateClassPayload(payload){
-    const envelope = window.EPSMatrix.migrateState({
-      schemaVersion: typeof payload.schemaVersion === "number" ? payload.schemaVersion : 1,
-      classes: [structuredClone(payload.classPayload || {})]
-    });
-    return envelope.classes?.[0] || null;
+    const schemaVersion = Number.isFinite(payload?.schemaVersion) ? payload.schemaVersion : 1;
+    const classPayload = (payload && payload.classPayload && typeof payload.classPayload === "object")
+      ? payload.classPayload
+      : {};
+    try{
+      const envelope = window.EPSMatrix.migrateState({
+        schemaVersion,
+        classes: [structuredClone(classPayload)]
+      });
+      if(!envelope.classes?.length){
+        throw userError("Sauvegarde vide/incomplète.");
+      }
+      return envelope.classes[0];
+    }catch(err){
+      throw userError(`Migration impossible (${err.message || err})`);
+    }
   }
 
   function mergeClassBackup(rawClass, suffix){
     if(!rawClass) return "Aucune donnée importée.";
     const imported = prepareClassPayload(rawClass);
+    if(!Array.isArray(cls.students)) cls.students = [];
+    if(!Array.isArray(cls.evaluations)) cls.evaluations = [];
     const existingStudents = new Set(cls.students.map((stu)=>stu.id));
     let studentsAdded = 0;
     imported.students.forEach((student)=>{
@@ -319,7 +344,7 @@
         studentsAdded++;
       }
     });
-    cls.notes = window.EPSMatrix.normalizeNotes(cls.notes, cls);
+    cls.notes = window.EPSMatrix.normalizeNotes(cls.notes || {}, cls);
     const existingEvalIds = new Set(cls.evaluations.map((ev)=>ev.id));
     let evalAdded = 0;
     let evalDuplicated = 0;
@@ -351,7 +376,7 @@
       projet2: stu?.projet2 || "",
       commentaire: stu?.commentaire || ""
     })) : [];
-    clone.notes = window.EPSMatrix.normalizeNotes(clone.notes, clone);
+    clone.notes = window.EPSMatrix.normalizeNotes(clone.notes || {}, clone);
     clone.evaluations = Array.isArray(clone.evaluations)
       ? clone.evaluations.map((evaluation)=>window.EPSMatrix.normalizeEvaluation(evaluation, clone))
       : [];
@@ -363,8 +388,8 @@
     copy.id = window.EPSMatrix.genId("eval");
     copy.activity = `${copy.activity || "Évaluation"} (restaurée ${suffix})`;
     copy.createdAt = Date.now();
-     copy.archived = false;
-     copy.status = "active";
+    copy.archived = false;
+    copy.status = "active";
     copy.archivedAt = null;
     if(copy.data?.meta){
       copy.data.meta.activity = copy.activity;
@@ -385,6 +410,36 @@
     const date = value ? new Date(value) : new Date();
     if(Number.isNaN(date.getTime())) return new Date().toLocaleDateString("fr-FR");
     return date.toLocaleDateString("fr-FR");
+  }
+
+  function normalizeClassBackupEnvelope(raw){
+    if(!raw || typeof raw !== "object"){
+      throw userError("Sauvegarde vide/incomplète.");
+    }
+    if(raw.kind === "epsmatrix.appBackup"){
+      throw userError("Ceci est une sauvegarde globale (appBackup). À importer depuis Mes classes.");
+    }
+    if(typeof raw.version !== "undefined" && raw.evaluation){
+      throw userError("Ceci est une archive d’évaluation (.epsarchive.json). Utilise Importer une archive.");
+    }
+    if(raw.kind && raw.kind !== "epsmatrix.classBackup"){
+      throw userError(`Type de sauvegarde non pris en charge (${raw.kind}).`);
+    }
+    const classPayload = raw.classPayload;
+    if(!classPayload || typeof classPayload !== "object"){
+      throw userError("Sauvegarde vide/incomplète.");
+    }
+    return {
+      schemaVersion: typeof raw.schemaVersion === "number" ? raw.schemaVersion : 1,
+      backupAt: raw.backupAt,
+      classPayload
+    };
+  }
+
+  function userError(message){
+    const err = new Error(message);
+    err.userMessage = message;
+    return err;
   }
   async function handleNewEvaluationRequest(){
     let input = null;
