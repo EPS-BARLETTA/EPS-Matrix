@@ -2,6 +2,7 @@ const STORE_KEY = "eps.matrix.v1";
 if(typeof structuredClone !== "function"){ window.structuredClone = (obj)=>JSON.parse(JSON.stringify(obj)); }
 const DEFAULT_CLASS_COLOR = "#1c5bff";
 const LISTE_DEFAULT = ["Niels","Valentina","Camille","Lea","Cecilia","Koray","Myla","Julie","Olivia","Gaia","Daria","Gabrielle","Evan","Anika","Marc","Emma","Auguste","Ysé","Victoria","Kenji","Tao","Edgar","Rafael","Bruno","Constance","Charlotte"];
+const ARCHIVE_VERSION = 1;
 const LEARNING_FIELDS = [
   {id:"CA1", title:"CA1 – Produire une performance optimale", desc:"Produire une performance optimale, mesurable à une échéance donnée.", color:"#0ea5e9"},
   {id:"CA2", title:"CA2 – Adapter ses déplacements", desc:"Adapter ses déplacements à des environnements variés.", color:"#14b8a6"},
@@ -90,6 +91,146 @@ function normalizeEvaluation(ev, cls){
   };
 }
 
+function computeEvaluationScore(evaluation, stu){
+  if(!evaluation?.data) return "";
+  const criteria = evaluation.data.criteria || [];
+  if(!criteria.length) return "";
+  const scoring = evaluation.data.scoring || {};
+  let total = 0;
+  let max = 0;
+  criteria.forEach((crit)=>{
+    const map = scoring[crit.id] || {};
+    const opts = Object.keys(map);
+    const localMax = opts.length ? Math.max(...opts.map((key)=>Number(map[key])||0)) : 0;
+    max += localMax;
+    total += Number(map[stu?.[crit.id]||""])||0;
+  });
+  if(!max) return "";
+  return ((total/max)*20).toFixed(1);
+}
+
+function isStudentValidated(evaluation, stu){
+  if(!evaluation?.data?.criteria?.length) return false;
+  return evaluation.data.criteria.every((crit)=>{
+    const info = CRITERIA_TYPES[crit.type];
+    if(info?.isComment) return Boolean(stu?.[crit.id]);
+    if(info?.top) return (stu?.[crit.id]||"") === info.top;
+    return Boolean(stu?.[crit.id]);
+  });
+}
+
+function studentStatus(evaluation, stu){
+  if(stu?.absent) return "absent";
+  if(stu?.dispense) return "dispense";
+  return isStudentValidated(evaluation, stu) ? "valide" : "encours";
+}
+
+function buildEvaluationCsv(evaluation){
+  if(!evaluation?.data) return "";
+  const baseFields = (evaluation.data.baseFields||[])
+    .map((id)=>BASE_FIELDS.find((field)=>field.id === id))
+    .filter(Boolean);
+  const criteria = evaluation.data.criteria || [];
+  const header = ["prenom","groupe", ...baseFields.map((field)=>field.label), ...criteria.map((crit)=>crit.label || "Critère"), "note","statut"];
+  const rows = (evaluation.data.students || []).map((stu)=>{
+    const baseValues = baseFields.map((field)=>String(stu?.[field.id]||"").replace(/\n/g," "));
+    const critValues = criteria.map((crit)=>String(stu?.[crit.id]||"").replace(/\n/g," "));
+    return [
+      stu?.name || "",
+      stu?.groupTag || "",
+      ...baseValues,
+      ...critValues,
+      computeEvaluationScore(evaluation, stu) || "",
+      studentStatus(evaluation, stu)
+    ];
+  });
+  return [header, ...rows].map((line)=>line.map((cell)=>`"${String(cell ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+}
+
+function sanitizeFileName(value=""){
+  if(typeof value !== "string") return "eps-matrix";
+  try{
+    value = value.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  }catch(_e){/* ignore */}
+  const clean = value.replace(/[^a-z0-9]+/gi,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");
+  return clean || "eps-matrix";
+}
+
+function serializeEvaluationArchive(cls, evaluation){
+  return {
+    version: ARCHIVE_VERSION,
+    exportedAt: Date.now(),
+    classSnapshot:{
+      id: cls.id,
+      name: cls.name,
+      teacher: cls.teacher || "",
+      site: cls.site || "",
+      color: cls.color || DEFAULT_CLASS_COLOR,
+      students: (cls.students||[]).map((stu)=>({id:stu.id || genId("stu"), name:stu.name || ""}))
+    },
+    evaluation: structuredClone(evaluation)
+  };
+}
+
+function parseEvaluationArchive(raw){
+  const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if(!payload || typeof payload !== "object") throw new Error("Archive invalide");
+  if(!payload.version || payload.version > ARCHIVE_VERSION) throw new Error("Archive non compatible");
+  if(!payload.evaluation) throw new Error("Archives sans données d'évaluation");
+  return payload;
+}
+
+function ensureClassFromSnapshot(state, snapshot){
+  if(!snapshot) snapshot = {};
+  let cls = snapshot.id ? state.classes.find((c)=>c.id === snapshot.id) : null;
+  if(!cls){
+    cls = {
+      id: snapshot.id || genId("cls"),
+      name: snapshot.name || "Classe importée",
+      teacher: snapshot.teacher || "",
+      site: snapshot.site || "",
+      color: snapshot.color || DEFAULT_CLASS_COLOR,
+      students: (snapshot.students||[]).map((stu)=>({id:stu.id || genId("stu"), name:stu.name || ""})),
+      evaluations: [],
+      notes: createEmptyNotes()
+    };
+    state.classes.push(cls);
+  }else{
+    cls.name = snapshot.name || cls.name;
+    cls.teacher = snapshot.teacher || cls.teacher;
+    cls.site = snapshot.site || cls.site;
+    cls.color = snapshot.color || cls.color || DEFAULT_CLASS_COLOR;
+    cls.students = Array.isArray(cls.students) ? cls.students : [];
+    const existingById = new Map(cls.students.map((stu)=>[stu.id, stu]));
+    (snapshot.students||[]).forEach((stu)=>{
+      const id = stu.id || genId("stu");
+      if(existingById.has(id)){
+        const target = existingById.get(id);
+        target.name = stu.name || target.name;
+      }else{
+        cls.students.push({id, name:stu.name || ""});
+      }
+    });
+  }
+  return cls;
+}
+
+function importEvaluationArchive(state, raw){
+  const payload = parseEvaluationArchive(raw);
+  const cls = ensureClassFromSnapshot(state, payload.classSnapshot);
+  cls.evaluations = Array.isArray(cls.evaluations) ? cls.evaluations : [];
+  const normalized = normalizeEvaluation(payload.evaluation, cls);
+  normalized.status = payload.evaluation?.status === "archived" ? "archived" : "active";
+  normalized.archivedAt = payload.evaluation?.archivedAt || (normalized.status === "archived" ? Date.now() : null);
+  const existingIdx = cls.evaluations.findIndex((ev)=>ev.id === normalized.id);
+  if(existingIdx === -1){
+    cls.evaluations.unshift(normalized);
+  }else{
+    cls.evaluations[existingIdx] = normalized;
+  }
+  return {cls, evaluation: normalized};
+}
+
 function buildDefaultScoring(){
   return {};
 }
@@ -133,11 +274,22 @@ window.EPSMatrix = {
   DEFAULT_BASE_FIELDS,
   DEFAULT_CRITERIA,
   createEmptyNotes,
+  createSketchPage,
   buildDefaultScoring,
   createEvalStudent,
   parseNames,
   formatStudentName,
-  genId
+  genId,
+  normalizeEvaluation,
+  normalizeNotes,
+  computeEvaluationScore,
+  isStudentValidated,
+  buildEvaluationCsv,
+  serializeEvaluationArchive,
+  parseEvaluationArchive,
+  importEvaluationArchive,
+  sanitizeFileName,
+  ARCHIVE_VERSION
 };
 
 function createEvalStudent(name, criteria){
@@ -147,7 +299,11 @@ function createEvalStudent(name, criteria){
 }
 
 function createEmptyNotes(){
-  return {table:{}, stickies:[], sketch:null};
+  return {table:{}, stickies:[], sketch:null, sketchPages:[createSketchPage("Page 1")], activeSketchPageId:null};
+}
+
+function createSketchPage(title="Page stylet"){
+  return {id:genId("sketch"), title, data:null, createdAt:Date.now(), updatedAt:null};
 }
 
 function normalizeNotes(notes, cls){
@@ -162,7 +318,18 @@ function normalizeNotes(notes, cls){
     x: typeof stick.x === "number" ? stick.x : 0,
     y: typeof stick.y === "number" ? stick.y : 0
   })) : [];
-  payload.sketch = payload.sketch || null;
+  if(!Array.isArray(payload.sketchPages) || !payload.sketchPages.length){
+    const first = createSketchPage("Page 1");
+    first.data = payload.sketch || null;
+    payload.sketchPages = [first];
+  }
+  if(payload.sketch && !payload.sketchPages[0].data){
+    payload.sketchPages[0].data = payload.sketch;
+  }
+  if(!payload.activeSketchPageId || !payload.sketchPages.some((page)=>page.id === payload.activeSketchPageId)){
+    payload.activeSketchPageId = payload.sketchPages[0].id;
+  }
+  payload.sketch = null;
   return payload;
 }
 

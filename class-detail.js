@@ -16,10 +16,14 @@
   const evalModalContent = document.getElementById("evalModalContent");
   const evalModalTitle = document.getElementById("evalModalTitle");
   const closeEvalModal = document.getElementById("closeEvalModal");
+  const btnImportArchive = document.getElementById("btnImportArchive");
+  const hiddenEvalImporter = document.getElementById("hiddenEvalImporter");
+
   closeEvalModal?.addEventListener("click", ()=>evalModal.classList.add("hidden"));
   evalModal?.addEventListener("click", (e)=>{ if(e.target === evalModal) evalModal.classList.add("hidden"); });
   document.getElementById("classTitle").textContent = cls.name;
   document.getElementById("classMeta").textContent = `Prof ${cls.teacher || "—"} • ${cls.students.length} élèves • Site ${cls.site || "—"}`;
+
   const btnNewEval = document.getElementById("btnNewEval");
   btnNewEval.addEventListener("click", ()=>{
     const input = prompt("Champ d'apprentissage ? (CA1, CA2, CA3, CA4, CA5 ou BLOC pour Bloc note)", "CA4");
@@ -33,6 +37,7 @@
     const chosen = field && field.id !== "NOTE" ? field.id : "CA4";
     window.location.href = `evaluation.html?class=${cls.id}&field=${chosen}`;
   });
+
   const btnDeleteClass = document.getElementById("btnDeleteClass");
   btnDeleteClass.addEventListener("click", ()=>{
     const message = `Supprimer définitivement ${cls.name} ainsi que toutes ses évaluations et notes ?`;
@@ -42,6 +47,15 @@
       window.location.href = "classes.html";
     }
   });
+
+  btnImportArchive?.addEventListener("click", ()=>{
+    if(hiddenEvalImporter){
+      hiddenEvalImporter.dataset.mode = "manual";
+      hiddenEvalImporter.click();
+    }
+  });
+  hiddenEvalImporter?.addEventListener("change", handleArchiveImport);
+
   render();
 
   function render(){
@@ -92,18 +106,23 @@
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <a class="btn secondary" style="padding:4px 10px;" href="evaluation.html?class=${cls.id}&eval=${ev.id}">Ouvrir</a>
             <button class="btn secondary" type="button" style="padding:4px 10px;" data-action="archive" data-id="${ev.id}">${ev.status==="archived"?"Restaurer":"Archiver"}</button>
+            <button class="btn secondary" type="button" style="padding:4px 10px;" data-action="export" data-id="${ev.id}">Exporter</button>
             <button class="btn secondary danger" type="button" style="padding:4px 10px;" data-action="delete" data-id="${ev.id}">Supprimer</button>
           </div>
         </div>`;
       }).join("");
       evalModalContent.querySelectorAll("button[data-action='archive']").forEach((btn)=>{
         btn.addEventListener("click", ()=>{
-          const evalId = btn.dataset.id;
-          const evaluation = cls.evaluations.find((ev)=>ev.id === evalId);
+          const evaluation = cls.evaluations.find((ev)=>ev.id === btn.dataset.id);
           if(!evaluation) return;
-          evaluation.status = evaluation.status === "archived" ? "active" : "archived";
-          window.EPSMatrix.saveState(state);
-          openEvalModal(fieldId);
+          handleArchiveToggle(evaluation, fieldId);
+        });
+      });
+      evalModalContent.querySelectorAll("button[data-action='export']").forEach((btn)=>{
+        btn.addEventListener("click", ()=>{
+          const evaluation = cls.evaluations.find((ev)=>ev.id === btn.dataset.id);
+          if(!evaluation) return;
+          exportEvaluationArchive(cls, evaluation);
         });
       });
       evalModalContent.querySelectorAll("button[data-action='delete']").forEach((btn)=>{
@@ -121,6 +140,81 @@
       });
     }
     evalModal.classList.remove("hidden");
+  }
+
+  function handleArchiveToggle(evaluation, fieldId){
+    if(evaluation.status === "archived"){
+      evaluation.status = "active";
+      evaluation.archivedAt = null;
+      window.EPSMatrix.saveState(state);
+      openEvalModal(fieldId);
+      promptRestoreImport();
+    }else{
+      evaluation.status = "archived";
+      evaluation.archivedAt = Date.now();
+      window.EPSMatrix.saveState(state);
+      openEvalModal(fieldId);
+      promptArchiveExport(evaluation);
+    }
+  }
+
+  function promptArchiveExport(evaluation){
+    exportEvaluationArchive(cls, evaluation);
+    alert("Archive exportée. Dépose l’archive (.epsarchive.json) et le CSV dans Fichiers pour une sauvegarde externe.");
+  }
+
+  function promptRestoreImport(){
+    if(!hiddenEvalImporter) return;
+    const wantsImport = confirm("Importer cette évaluation depuis un fichier sauvegardé (iCloud / Fichiers) ?");
+    if(wantsImport){
+      hiddenEvalImporter.dataset.mode = "restore";
+      hiddenEvalImporter.click();
+    }
+  }
+
+  function handleArchiveImport(event){
+    const file = event.target.files?.[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const payload = window.EPSMatrix.parseEvaluationArchive(reader.result);
+        const result = window.EPSMatrix.importEvaluationArchive(state, payload);
+        window.EPSMatrix.saveState(state);
+        alert(`Évaluation importée dans ${result.cls.name}.`);
+        render();
+        if(result.evaluation?.learningField){
+          openEvalModal(normalizeField(result.evaluation.learningField));
+        }
+      }catch(err){
+        console.error(err);
+        alert("Impossible de lire ce fichier d'archivage. Vérifie qu'il provient d'EPS Matrix.");
+      }finally{
+        event.target.value = "";
+        delete event.target.dataset.mode;
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  function exportEvaluationArchive(cls, evaluation){
+    const {serializeEvaluationArchive, buildEvaluationCsv, sanitizeFileName} = window.EPSMatrix;
+    const archive = serializeEvaluationArchive(cls, evaluation);
+    archive.csv = buildEvaluationCsv(evaluation);
+    const day = new Date().toISOString().split("T")[0];
+    const prefix = `${sanitizeFileName(cls.name)}-${sanitizeFileName(evaluation.activity)}-${day}`;
+    downloadContent(`${prefix}.epsarchive.json`, JSON.stringify(archive, null, 2), "application/json");
+    downloadContent(`${prefix}.csv`, archive.csv, "text/csv");
+  }
+
+  function downloadContent(filename, content, type){
+    const blob = new Blob([content], {type});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(()=>{ URL.revokeObjectURL(link.href); link.remove(); }, 0);
   }
 
   function withAlpha(color, alpha="22"){

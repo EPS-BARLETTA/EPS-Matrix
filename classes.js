@@ -5,12 +5,19 @@
   const statsEl = document.getElementById("classesStats");
   const grid = document.getElementById("folderGrid");
   const chkArchived = document.getElementById("chkShowArchived");
+  const btnImportArchive = document.getElementById("btnImportArchiveGlobal");
+  const hiddenArchiveImporter = document.getElementById("hiddenArchiveImporter");
+
   chkArchived.checked = Boolean(state.showArchived);
   chkArchived.addEventListener("change", ()=>{
     state.showArchived = chkArchived.checked;
     saveState(state);
     render();
   });
+  btnImportArchive?.addEventListener("click", ()=>{
+    hiddenArchiveImporter?.click();
+  });
+  hiddenArchiveImporter?.addEventListener("change", handleArchiveImport);
   render();
 
   function render(){
@@ -72,5 +79,26 @@
   function withAlpha(color, alpha="22"){
     if(typeof color !== "string") return color;
     return /^#([0-9a-f]{6})$/i.test(color) ? `${color}${alpha}` : color;
+  }
+
+  function handleArchiveImport(event){
+    const file = event.target.files?.[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const payload = window.EPSMatrix.parseEvaluationArchive(reader.result);
+        const result = window.EPSMatrix.importEvaluationArchive(state, payload);
+        saveState(state);
+        alert(`Évaluation importée dans ${result.cls.name}.`);
+        render();
+      }catch(err){
+        console.error(err);
+        alert("Impossible de lire ce fichier d'archivage.");
+      }finally{
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file, "utf-8");
   }
 })();

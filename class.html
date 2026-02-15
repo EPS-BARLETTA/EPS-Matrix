@@ -29,6 +29,7 @@
         <a class="btn secondary" href="classes.html">← Retour classes</a>
         <a class="btn secondary" href="create-class.html">Créer une classe</a>
         <button class="btn primary" id="btnNewEval">Créer une évaluation</button>
+        <button class="btn secondary" id="btnImportArchive">Importer un archivage</button>
         <button class="btn secondary danger" id="btnDeleteClass">Supprimer la classe</button>
       </div>
     </header>
@@ -44,5 +45,6 @@
       <div id="evalModalContent" class="caList" style="margin-top:16px;"></div>
     </div>
   </div>
+  <input type="file" id="hiddenEvalImporter" accept="application/json" class="hidden" />
 </body>
 </html>

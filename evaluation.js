@@ -9,7 +9,9 @@
   if(!cls){ window.location.href = "classes.html"; return; }
 
   if(!evalId && field){
-    const activity = prompt("Nom de l'évaluation", "Escalade");
+    const defaultSuggestion = "";
+    const activityInput = prompt("Nom de l'évaluation", defaultSuggestion) || "";
+    const activity = activityInput.trim() || `Évaluation ${new Date().toLocaleDateString("fr-FR")}`;
     const criteria = [];
     const evaluation = {
       id: window.EPSMatrix.genId("eval"),
@@ -19,7 +21,7 @@
       createdAt: Date.now(),
       archivedAt: null,
       data:{
-        meta:{classe:cls.name, activity:activity||"Évaluation", enseignant:cls.teacher, site:cls.site, date:""},
+        meta:{classe:cls.name, activity:activity||"Évaluation", enseignant:cls.teacher, site:cls.site, date:new Date().toLocaleDateString("fr-FR")},
         baseFields: window.EPSMatrix.DEFAULT_BASE_FIELDS.slice(),
         criteria,
         students: cls.students.map((stu)=>window.EPSMatrix.createEvalStudent(stu.name, criteria)),
@@ -60,8 +62,40 @@
   const btnOpenChatGPT = document.getElementById("btnOpenChatGPT");
   const btnToggleNote = document.getElementById("btnToggleNote");
 
-  document.getElementById("evalTitle").textContent = `${evaluation.activity} – ${cls.name}`;
-  document.getElementById("evalMeta").textContent = `Prof ${cls.teacher || "—"} • ${evaluation.data.students.length} élèves`;
+  const evalTitleEl = document.getElementById("evalTitle");
+  const evalMetaEl = document.getElementById("evalMeta");
+  evalTitleEl?.setAttribute("title", "Cliquer pour renommer l'évaluation");
+  renderHeader();
+  evalTitleEl?.addEventListener("click", promptRenameEvaluation);
+
+  function renderHeader(){
+    const dateLabel = formatEvalDate(evaluation.createdAt);
+    if(evalTitleEl){
+      evalTitleEl.textContent = `${dateLabel} – ${evaluation.activity}`;
+    }
+    if(evalMetaEl){
+      evalMetaEl.textContent = `${cls.name} • Prof ${cls.teacher || "—"} • ${evaluation.data.students.length} élèves`;
+    }
+  }
+
+  function formatEvalDate(timestamp){
+    const date = timestamp ? new Date(timestamp) : new Date();
+    return date.toLocaleDateString("fr-FR", {weekday:"short", day:"2-digit", month:"2-digit", year:"numeric"});
+  }
+
+  function promptRenameEvaluation(){
+    const current = evaluation.activity || "";
+    const next = prompt("Renommer l'évaluation", current);
+    if(next === null) return;
+    const trimmed = next.trim();
+    if(!trimmed || trimmed === current) return;
+    evaluation.activity = trimmed;
+    if(evaluation.data?.meta){
+      evaluation.data.meta.activity = trimmed;
+    }
+    persist();
+    renderHeader();
+  }
   document.getElementById("backClass").href = `class.html?class=${classId}`;
 
   const LEVEL_MAP = {
@@ -494,16 +528,9 @@
   }
 
   function exportCSV(){
-    const baseFields = getActiveBaseFields();
-    const header = ["prenom","groupe",...baseFields.map((field)=>field.label),...evaluation.data.criteria.map((c)=>c.label),"note","statut"];
-    const rows = evaluation.data.students.map((stu)=>{
-      const status = stu.absent?"absent":stu.dispense?"dispense":isValidated(stu)?"valide":"encours";
-      const baseValues = baseFields.map((field)=>String(stu[field.id]||"").replace(/\n/g," "));
-      const critValues = evaluation.data.criteria.map((crit)=>String(stu[crit.id]||"").replace(/\n/g," "));
-      return [stu.name, stu.groupTag||"", ...baseValues, ...critValues, computeScore(stu), status];
-    });
-    const csv = [header, ...rows].map((line)=>line.map((cell)=>`"${String(cell ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
-    downloadFile(`${cls.name}-${evaluation.activity}.csv`, csv, "text/csv");
+    const csv = window.EPSMatrix.buildEvaluationCsv(evaluation);
+    const fileName = `${window.EPSMatrix.sanitizeFileName(cls.name)}-${window.EPSMatrix.sanitizeFileName(evaluation.activity)}.csv`;
+    downloadFile(fileName, csv, "text/csv");
   }
 
   function handleImportCsv(event){

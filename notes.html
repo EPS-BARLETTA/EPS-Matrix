@@ -61,10 +61,20 @@
             <p class="muted">Écris à main levée (Apple Pencil compatible).</p>
           </div>
           <div class="navButtons">
+            <button class="btn secondary" id="btnFullscreenSketch" type="button">Plein écran</button>
+            <button class="btn secondary" id="btnExportSketch" type="button">Archiver (PNG)</button>
             <button class="btn secondary" id="btnClearSketch" type="button">Effacer</button>
           </div>
         </div>
-        <div class="sketchShell">
+        <div class="sketchToolbar">
+          <div id="sketchTabs" class="sketchTabs"></div>
+          <div class="navButtons">
+            <button class="btn secondary" id="btnAddSketchPage" type="button">+ Page stylet</button>
+            <button class="btn secondary" id="btnRenameSketchPage" type="button">Renommer</button>
+            <button class="btn secondary danger" id="btnDeleteSketchPage" type="button">Supprimer</button>
+          </div>
+        </div>
+        <div class="sketchShell" id="sketchShell">
           <canvas id="sketchCanvas" width="900" height="360"></canvas>
         </div>
       </div>
