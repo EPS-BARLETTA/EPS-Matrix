@@ -171,13 +171,15 @@ function normalizeEvaluation(ev, cls){
     if(typeof stu.groupTag === "undefined") stu.groupTag = "";
     criteria.forEach((crit)=>{ if(typeof stu[crit.id] === "undefined") stu[crit.id] = ""; });
   });
+  const isArchived = ev.archived === true || ev.status === "archived";
   return {
     id: ev.id || genId("eval"),
     activity: ev.activity || ev.data?.meta?.activity || "Évaluation",
     learningField: ev.learningField || "CA4",
-    status: ev.status === "archived" ? "archived" : "active",
+    status: isArchived ? "archived" : "active",
+    archived: isArchived,
     createdAt: ev.createdAt || Date.now(),
-    archivedAt: ev.archivedAt || null,
+    archivedAt: isArchived ? (ev.archivedAt || Date.now()) : null,
     data:{
       meta:{classe:ev.data?.meta?.classe || cls.name, activity:ev.activity || ev.data?.meta?.activity || "Évaluation", enseignant:ev.data?.meta?.enseignant || cls.teacher || "", site:ev.data?.meta?.site || cls.site || "", date:ev.data?.meta?.date || ""},
       baseFields,
@@ -269,7 +271,7 @@ function buildEvaluationCsv(evaluation){
     .map((id)=>BASE_FIELDS.find((field)=>field.id === id))
     .filter(Boolean);
   const criteria = evaluation.data.criteria || [];
-  const header = ["student_id","prenom","groupe", ...baseFields.map((field)=>field.label), ...criteria.map((crit)=>crit.label || "Critère"), "note","statut"];
+  const header = ["student_id","prenom","groupe","absent","dispense", ...baseFields.map((field)=>field.label), ...criteria.map((crit)=>crit.label || "Critère"), "note","statut"];
   const rows = (evaluation.data.students || []).map((stu)=>{
     const baseValues = baseFields.map((field)=>String(stu?.[field.id]||"").replace(/\n/g," "));
     const critValues = criteria.map((crit)=>String(stu?.[crit.id]||"").replace(/\n/g," "));
@@ -277,6 +279,8 @@ function buildEvaluationCsv(evaluation){
       stu?.id || "",
       stu?.name || "",
       stu?.groupTag || "",
+      stu?.absent ? "true" : "false",
+      stu?.dispense ? "true" : "false",
       ...baseValues,
       ...critValues,
       computeEvaluationScore(evaluation, stu) || "",
@@ -359,8 +363,10 @@ function importEvaluationArchive(state, raw){
   const cls = ensureClassFromSnapshot(state, payload.classSnapshot);
   cls.evaluations = Array.isArray(cls.evaluations) ? cls.evaluations : [];
   const normalized = normalizeEvaluation(payload.evaluation, cls);
-  normalized.status = payload.evaluation?.status === "archived" ? "archived" : "active";
-  normalized.archivedAt = payload.evaluation?.archivedAt || (normalized.status === "archived" ? Date.now() : null);
+  const archived = payload.evaluation?.archived === true || payload.evaluation?.status === "archived";
+  normalized.archived = archived;
+  normalized.status = archived ? "archived" : "active";
+  normalized.archivedAt = archived ? (payload.evaluation?.archivedAt || Date.now()) : null;
   const existingIdx = cls.evaluations.findIndex((ev)=>ev.id === normalized.id);
   if(existingIdx === -1){
     cls.evaluations.unshift(normalized);
@@ -441,6 +447,7 @@ window.EPSMatrix = {
   loadState,
   saveState,
   defaultState,
+  migrateState,
   LISTE_DEFAULT,
   LEARNING_FIELDS,
   CRITERIA_TYPES,
@@ -469,7 +476,8 @@ window.EPSMatrix = {
   computeStudentRawScore,
   computeStudentNote,
   sanitizeFileName,
-  ARCHIVE_VERSION
+  ARCHIVE_VERSION,
+  CURRENT_SCHEMA_VERSION
 };
 
 function createEvalStudent(name, criteria){

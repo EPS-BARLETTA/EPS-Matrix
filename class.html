@@ -30,6 +30,8 @@
         <a class="btn secondary" href="classes.html">← Retour classes</a>
         <a class="btn secondary" href="create-class.html">Créer une classe</a>
         <button class="btn primary" id="btnNewEval">Créer une évaluation</button>
+        <button class="btn secondary" id="btnBackupClass">Sauvegarder la classe</button>
+        <button class="btn secondary" id="btnRestoreClassBackup">Récupérer une sauvegarde</button>
         <button class="btn secondary" id="btnImportArchive">Importer un archivage</button>
         <button class="btn secondary danger" id="btnDeleteClass">Supprimer la classe</button>
       </div>
@@ -47,5 +49,6 @@
     </div>
   </div>
   <input type="file" id="hiddenEvalImporter" accept="application/json" class="hidden" />
+  <input type="file" id="inputClassBackup" accept=".epsbackup.json,application/json" hidden />
 </body>
 </html>

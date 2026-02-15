@@ -1,5 +1,13 @@
 (function(){
-  const {loadState, saveState} = window.EPSMatrix;
+  const {
+    loadState,
+    saveState,
+    normalizeEvaluation,
+    normalizeNotes,
+    genId,
+    migrateState,
+    CURRENT_SCHEMA_VERSION
+  } = window.EPSMatrix;
   const DEFAULT_COLOR = "#1c5bff";
   let state = loadState();
   const statsEl = document.getElementById("classesStats");
@@ -7,6 +15,9 @@
   const chkArchived = document.getElementById("chkShowArchived");
   const btnImportArchive = document.getElementById("btnImportArchiveGlobal");
   const hiddenArchiveImporter = document.getElementById("hiddenArchiveImporter");
+  const btnBackupAll = document.getElementById("btnBackupAllClasses");
+  const btnRestoreApp = document.getElementById("btnRestoreAppBackup");
+  const inputAppBackup = document.getElementById("inputAppBackup");
 
   chkArchived.checked = Boolean(state.showArchived);
   chkArchived.addEventListener("change", ()=>{
@@ -18,6 +29,11 @@
     hiddenArchiveImporter?.click();
   });
   hiddenArchiveImporter?.addEventListener("change", handleArchiveImport);
+  btnBackupAll?.addEventListener("click", exportAppBackup);
+  btnRestoreApp?.addEventListener("click", ()=>{
+    if(inputAppBackup) inputAppBackup.click();
+  });
+  inputAppBackup?.addEventListener("change", handleAppBackupImport);
   render();
 
   function render(){
@@ -71,7 +87,7 @@
     let evals = 0, archived = 0;
     state.classes.forEach((cls)=>{
       evals += cls.evaluations.length;
-      archived += cls.evaluations.filter((ev)=>ev.status==='archived').length;
+      archived += cls.evaluations.filter((ev)=>ev.archived).length;
     });
     return {classes, evals, archived};
   }
@@ -100,5 +116,151 @@
       }
     };
     reader.readAsText(file, "utf-8");
+  }
+
+  function exportAppBackup(){
+    try{
+      const backup = {
+        kind: "epsmatrix.appBackup",
+        backupAt: new Date().toISOString(),
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        appState: structuredClone(state)
+      };
+      const filename = `EPSMatrix_Mes-classes_${formatTimestamp(new Date())}.epsbackup.json`;
+      downloadFile(filename, JSON.stringify(backup, null, 2));
+    }catch(err){
+      console.error("Export backup impossible", err);
+      alert("Impossible de créer la sauvegarde.");
+    }
+  }
+
+  function handleAppBackupImport(event){
+    const file = event.target.files?.[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const payload = JSON.parse(reader.result);
+        if(payload?.kind !== "epsmatrix.appBackup"){
+          throw new Error("Fichier incompatible");
+        }
+        const incomingState = structuredClone(payload.appState || {});
+        incomingState.schemaVersion = typeof payload.schemaVersion === "number" ? payload.schemaVersion : incomingState.schemaVersion;
+        const imported = migrateState(incomingState);
+        const suffix = formatRestoreLabel(payload.backupAt);
+        const report = mergeAppBackup(imported, suffix);
+        saveState(state);
+        render();
+        alert(report);
+      }catch(err){
+        console.error("Import backup impossible", err);
+        alert("Impossible de restaurer cette sauvegarde.");
+      }finally{
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  function mergeAppBackup(importedState, suffix){
+    let classesAdded = 0;
+    let classesDuplicated = 0;
+    let evalsAdded = 0;
+    let evalsDuplicated = 0;
+    const existingIds = new Set(state.classes.map((cls)=>cls.id));
+    (importedState.classes || []).forEach((rawClass)=>{
+      const normalized = prepareClassPayload(rawClass);
+      if(existingIds.has(normalized.id)){
+        const duplicated = duplicateClassPayload(normalized, suffix);
+        state.classes.push(duplicated);
+        classesDuplicated++;
+        evalsDuplicated += duplicated.evaluations.length;
+      }else{
+        state.classes.push(normalized);
+        existingIds.add(normalized.id);
+        classesAdded++;
+        evalsAdded += normalized.evaluations.length;
+      }
+    });
+    if(!classesAdded && !classesDuplicated){
+      return "Aucune classe importée (tout est déjà présent).";
+    }
+    return [
+      `${classesAdded} classe(s) ajoutée(s)`,
+      `${classesDuplicated} classe(s) dupliquée(s)`,
+      `${evalsAdded} évaluation(s) ajoutée(s)`,
+      `${evalsDuplicated} évaluation(s) dupliquée(s)`
+    ].join(" · ");
+  }
+
+  function prepareClassPayload(rawClass){
+    const cls = structuredClone(rawClass || {});
+    cls.id = cls.id || genId("cls");
+    cls.name = cls.name || "Classe importée";
+    cls.teacher = cls.teacher || "";
+    cls.site = cls.site || "";
+    cls.color = cls.color || DEFAULT_COLOR;
+    cls.students = Array.isArray(cls.students) ? cls.students.map((stu)=>({
+      id: stu?.id || genId("stu"),
+      name: stu?.name || "",
+      groupTag: stu?.groupTag || "",
+      absent: Boolean(stu?.absent),
+      dispense: Boolean(stu?.dispense),
+      niveau: stu?.niveau || "",
+      projet1: stu?.projet1 || "",
+      projet2: stu?.projet2 || "",
+      commentaire: stu?.commentaire || ""
+    })) : [];
+    cls.notes = normalizeNotes(cls.notes, cls);
+    cls.evaluations = Array.isArray(cls.evaluations)
+      ? cls.evaluations.map((evaluation)=>normalizeEvaluation(evaluation, cls))
+      : [];
+    return cls;
+  }
+
+  function duplicateClassPayload(classPayload, suffix){
+    const duplicated = structuredClone(classPayload);
+    duplicated.id = genId("cls");
+    duplicated.name = `${duplicated.name || "Classe restaurée"} (restaurée ${suffix})`;
+    duplicated.evaluations = duplicated.evaluations.map((evaluation)=>{
+      const copy = structuredClone(evaluation);
+      copy.id = genId("eval");
+      copy.activity = `${copy.activity || "Évaluation"} (restaurée ${suffix})`;
+      if(copy.data?.meta){
+        copy.data.meta.activity = copy.activity;
+      }
+      copy.createdAt = Date.now();
+      copy.archived = false;
+      copy.status = "active";
+      copy.archivedAt = null;
+      return normalizeEvaluation(copy, duplicated);
+    });
+    duplicated.notes = normalizeNotes(duplicated.notes, duplicated);
+    return duplicated;
+  }
+
+  function formatTimestamp(date){
+    const year = date.getFullYear();
+    const month = String(date.getMonth()+1).padStart(2,"0");
+    const day = String(date.getDate()).padStart(2,"0");
+    const hours = String(date.getHours()).padStart(2,"0");
+    const minutes = String(date.getMinutes()).padStart(2,"0");
+    return `${year}-${month}-${day}_${hours}-${minutes}`;
+  }
+
+  function formatRestoreLabel(value){
+    const date = value ? new Date(value) : new Date();
+    if(Number.isNaN(date.getTime())) return new Date().toLocaleDateString("fr-FR");
+    return date.toLocaleDateString("fr-FR");
+  }
+
+  function downloadFile(filename, content){
+    const blob = new Blob([content], {type:"application/json"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(()=>{ URL.revokeObjectURL(link.href); link.remove(); }, 0);
   }
 })();

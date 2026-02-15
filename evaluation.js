@@ -125,7 +125,8 @@
     if(showNote){ headers.push("Note"); }
     headers.push("Statut");
     thead.innerHTML = headers.map((h)=>`<th>${h}</th>`).join("");
-    tbody.innerHTML = evaluation.data.students.map((stu)=>rowHTML(stu, baseFields, showNote)).join("");
+    const orderedStudents = sortStudentsForDisplay(evaluation.data.students);
+    tbody.innerHTML = orderedStudents.map((stu)=>rowHTML(stu, baseFields, showNote)).join("");
     tbody.querySelectorAll("select[data-field]").forEach(decorateSelect);
     applyGroupingStyles();
   }
@@ -142,7 +143,9 @@
     }).join("");
     const baseCells = baseFields.map((field)=>baseFieldCell(field, stu)).join("");
     const noteCell = showNote ? `<td data-cell="note"><strong>${computeScore(stu)}</strong></td>` : "";
-    return `<tr data-id="${stu.id}" data-name="${stu.name}" data-group="${stu.groupTag||""}">
+    const rowClass = stu.absent ? "isAbsent" : (stu.dispense ? "isDispense" : "");
+    const classAttr = rowClass ? ` class="${rowClass}"` : "";
+    return `<tr${classAttr} data-id="${stu.id}" data-name="${stu.name}" data-group="${stu.groupTag||""}">
       <td>${nameCell(stu)}</td>
       <td>${groupCell(stu)}</td>
       ${baseCells}
@@ -201,15 +204,8 @@
 
   function applyGroupingStyles(){
     const rows = Array.from(tbody.querySelectorAll("tr"));
-    const sorted = rows.slice().sort((a,b)=>{
-      const priA = groupPriority(a.dataset.group);
-      const priB = groupPriority(b.dataset.group);
-      if(priA !== priB) return priA - priB;
-      return (a.dataset.name||"").localeCompare(b.dataset.name||"");
-    });
-    sorted.forEach((row)=>tbody.appendChild(row));
     let prev = null;
-    sorted.forEach((row)=>{
+    rows.forEach((row)=>{
       const group = row.dataset.group || "";
       const color = groupColor(group);
       row.style.setProperty("--group-bg", color || "transparent");
@@ -242,6 +238,21 @@
     if(map && map[value]) return map[value];
     if(value === "") return "";
     return "";
+  }
+
+  function sortStudentsForDisplay(list){
+    return (list || []).map((stu, idx)=>({stu, idx})).sort((a, b)=>{
+      const priorityA = studentDisplayPriority(a.stu);
+      const priorityB = studentDisplayPriority(b.stu);
+      if(priorityA !== priorityB) return priorityA - priorityB;
+      return a.idx - b.idx;
+    }).map((entry)=>entry.stu);
+  }
+
+  function studentDisplayPriority(student){
+    if(student?.absent) return 2;
+    if(student?.dispense) return 1;
+    return 0;
   }
 
   function computeScore(stu){
@@ -547,6 +558,8 @@
     if(typeof prenomIdx === "undefined") throw new Error("Colonne prénom manquante");
     const groupIdx = headerMap["groupe"];
     const studentIdIdx = headerMap["student_id"];
+    const absentIdx = headerMap["absent"];
+    const dispenseIdx = headerMap["dispense"];
     const studentById = new Map();
     const nameBuckets = new Map();
     evaluation.data.students.forEach((stu)=>{
@@ -584,6 +597,16 @@
       }
       if(!student) return;
       if(groupIdx !== undefined){ student.groupTag = cells[groupIdx] || ""; }
+      if(typeof absentIdx !== "undefined"){
+        const isAbsent = parseBooleanCell(cells[absentIdx]);
+        student.absent = isAbsent;
+        if(isAbsent){ student.dispense = false; }
+      }
+      if(typeof dispenseIdx !== "undefined"){
+        const isDisp = parseBooleanCell(cells[dispenseIdx]);
+        student.dispense = isDisp;
+        if(isDisp){ student.absent = false; }
+      }
       baseFields.forEach((field)=>{
         const idx = header.indexOf(field.label);
         if(idx !== -1){ student[field.id] = cells[idx] || ""; }
@@ -631,6 +654,12 @@
     return result;
   }
 
+  function parseBooleanCell(value){
+    const normalized = String(value || "").trim().toLowerCase();
+    if(!normalized) return false;
+    return normalized === "1" || normalized === "true" || normalized === "vrai" || normalized === "oui" || normalized === "yes" || normalized === "y" || normalized === "x";
+  }
+
   function downloadFile(filename, content, type){
     const blob = new Blob([content], {type});
     const link = document.createElement("a");
@@ -662,6 +691,7 @@
       activity: label || "Évaluation",
       learningField: fieldId,
       status: "active",
+      archived: false,
       createdAt: Date.now(),
       archivedAt: null,
       data:{

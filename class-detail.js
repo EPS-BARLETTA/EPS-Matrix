@@ -18,11 +18,15 @@
   const closeEvalModal = document.getElementById("closeEvalModal");
   const btnImportArchive = document.getElementById("btnImportArchive");
   const hiddenEvalImporter = document.getElementById("hiddenEvalImporter");
+  const btnBackupClass = document.getElementById("btnBackupClass");
+  const btnRestoreClass = document.getElementById("btnRestoreClassBackup");
+  const inputClassBackup = document.getElementById("inputClassBackup");
+  const classTitleEl = document.getElementById("classTitle");
+  const classMetaEl = document.getElementById("classMeta");
 
   closeEvalModal?.addEventListener("click", ()=>evalModal.classList.add("hidden"));
   evalModal?.addEventListener("click", (e)=>{ if(e.target === evalModal) evalModal.classList.add("hidden"); });
-  document.getElementById("classTitle").textContent = cls.name;
-  document.getElementById("classMeta").textContent = `Prof ${cls.teacher || "—"} • ${cls.students.length} élèves • Site ${cls.site || "—"}`;
+  updateClassHeader();
 
   const btnNewEval = document.getElementById("btnNewEval");
   btnNewEval.addEventListener("click", ()=>handleNewEvaluationRequest());
@@ -44,6 +48,11 @@
     }
   });
   hiddenEvalImporter?.addEventListener("change", handleArchiveImport);
+  btnBackupClass?.addEventListener("click", exportClassBackup);
+  btnRestoreClass?.addEventListener("click", ()=>{
+    if(inputClassBackup) inputClassBackup.click();
+  });
+  inputClassBackup?.addEventListener("change", handleClassBackupImport);
 
   render();
 
@@ -52,7 +61,7 @@
       const color = lf.color || cls.color || "#1c5bff";
       const soft = withAlpha(color,"22");
       const normalizedId = lf.id;
-      const evals = cls.evaluations.filter((ev)=>normalizeField(ev.learningField) === lf.id && (showArchived || ev.status !== "archived"));
+      const evals = cls.evaluations.filter((ev)=>normalizeField(ev.learningField) === lf.id && (showArchived || !ev.archived));
       const count = evals.length;
       const primaryBtn = normalizedId === "NOTE"
         ? `<a class="btn primary" href="notes.html?class=${cls.id}">Ouvrir le bloc note</a>`
@@ -76,30 +85,23 @@
         openEvalModal(fieldId);
       });
     });
-  }
+}
 
   function openEvalModal(fieldId){
     const field = window.EPSMatrix.LEARNING_FIELDS.find((lf)=>lf.id === fieldId);
     if(!field || !evalModal) return;
-    const evals = cls.evaluations.filter((ev)=>normalizeField(ev.learningField) === fieldId && (showArchived || ev.status !== "archived"));
+    const evals = cls.evaluations.filter((ev)=>normalizeField(ev.learningField) === fieldId);
+    const activeEvals = evals.filter((ev)=>!ev.archived);
+    const archivedEvals = evals.filter((ev)=>ev.archived);
     evalModalTitle.textContent = `${field.title} – ${evals.length} évaluation${evals.length>1?"s":""}`;
     if(!evals.length){
       evalModalContent.innerHTML = '<div class="caItem" style="justify-content:center;color:var(--muted)">Aucune évaluation</div>';
     }else{
-      evalModalContent.innerHTML = evals.map((ev)=>{
-        return `<div class="caItem" data-id="${ev.id}">
-          <div>
-            <strong>${ev.activity}</strong>
-            <p class="muted" style="margin:4px 0 0;">${new Date(ev.createdAt).toLocaleDateString("fr-FR")}</p>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <a class="btn secondary" style="padding:4px 10px;" href="evaluation.html?class=${cls.id}&eval=${ev.id}">Ouvrir</a>
-            <button class="btn secondary" type="button" style="padding:4px 10px;" data-action="archive" data-id="${ev.id}">${ev.status==="archived"?"Restaurer":"Archiver"}</button>
-            <button class="btn secondary" type="button" style="padding:4px 10px;" data-action="export" data-id="${ev.id}">Exporter</button>
-            <button class="btn secondary danger" type="button" style="padding:4px 10px;" data-action="delete" data-id="${ev.id}">Supprimer</button>
-          </div>
-        </div>`;
-      }).join("");
+      const sections = [
+        renderEvalGroup("Actives", activeEvals, false),
+        archivedEvals.length ? renderEvalGroup("Archivées", archivedEvals, true) : ""
+      ].filter(Boolean);
+      evalModalContent.innerHTML = sections.join("");
       evalModalContent.querySelectorAll("button[data-action='archive']").forEach((btn)=>{
         btn.addEventListener("click", ()=>{
           const evaluation = cls.evaluations.find((ev)=>ev.id === btn.dataset.id);
@@ -131,14 +133,44 @@
     evalModal.classList.remove("hidden");
   }
 
+  function renderEvalGroup(title, evaluations, archived){
+    if(!evaluations.length){
+      return `<div class="caSection ${archived?"archived":""}">
+        <h3 style="margin-bottom:8px;">${title}</h3>
+        <p class="muted" style="margin:0;">Aucune évaluation.</p>
+      </div>`;
+    }
+    return `<div class="caSection ${archived?"archived":""}">
+      <h3 style="margin-bottom:8px;">${title}</h3>
+      ${evaluations.map(renderEvalCard).join("")}
+    </div>`;
+  }
+
+  function renderEvalCard(ev){
+    return `<div class="caItem" data-id="${ev.id}">
+      <div>
+        <strong>${ev.activity}</strong>
+        <p class="muted" style="margin:4px 0 0;">${new Date(ev.createdAt).toLocaleDateString("fr-FR")}</p>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <a class="btn secondary" style="padding:4px 10px;" href="evaluation.html?class=${cls.id}&eval=${ev.id}">Ouvrir</a>
+        <button class="btn secondary" type="button" style="padding:4px 10px;" data-action="archive" data-id="${ev.id}">${ev.archived?"Désarchiver":"Archiver"}</button>
+        <button class="btn secondary" type="button" style="padding:4px 10px;" data-action="export" data-id="${ev.id}">Exporter</button>
+        <button class="btn secondary danger" type="button" style="padding:4px 10px;" data-action="delete" data-id="${ev.id}">Supprimer</button>
+      </div>
+    </div>`;
+  }
+
   function handleArchiveToggle(evaluation, fieldId){
-    if(evaluation.status === "archived"){
+    if(evaluation.archived){
+      evaluation.archived = false;
       evaluation.status = "active";
       evaluation.archivedAt = null;
       window.EPSMatrix.saveState(state);
       openEvalModal(fieldId);
       promptRestoreImport();
     }else{
+      evaluation.archived = true;
       evaluation.status = "archived";
       evaluation.archivedAt = Date.now();
       window.EPSMatrix.saveState(state);
@@ -214,6 +246,145 @@
   function normalizeField(id){
     if(window.EPSMatrix.LEARNING_FIELDS.some((lf)=>lf.id === id)) return id;
     return "NOTE";
+  }
+
+  function updateClassHeader(){
+    if(classTitleEl) classTitleEl.textContent = cls.name;
+    if(classMetaEl){
+      classMetaEl.textContent = `Prof ${cls.teacher || "—"} • ${cls.students.length} élèves • Site ${cls.site || "—"}`;
+    }
+  }
+
+  function exportClassBackup(){
+    try{
+      const payload = {
+        kind: "epsmatrix.classBackup",
+        backupAt: new Date().toISOString(),
+        schemaVersion: window.EPSMatrix.CURRENT_SCHEMA_VERSION,
+        classPayload: structuredClone(cls)
+      };
+      const safeName = window.EPSMatrix.sanitizeFileName(cls.name || "Classe");
+      const filename = `EPSMatrix_${safeName}_${formatTimestamp(new Date())}.epsbackup.json`;
+      downloadFile(filename, JSON.stringify(payload, null, 2));
+    }catch(err){
+      console.error("Export classe impossible", err);
+      alert("Impossible de sauvegarder cette classe.");
+    }
+  }
+
+  function handleClassBackupImport(event){
+    const file = event.target.files?.[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const payload = JSON.parse(reader.result);
+        if(payload?.kind !== "epsmatrix.classBackup"){
+          throw new Error("Fichier incompatible");
+        }
+        const migratedClass = migrateClassPayload(payload);
+        const suffix = formatRestoreLabel(payload.backupAt);
+        const report = mergeClassBackup(migratedClass, suffix);
+        window.EPSMatrix.saveState(state);
+        updateClassHeader();
+        render();
+        alert(report);
+      }catch(err){
+        console.error("Import classe impossible", err);
+        alert("Impossible de restaurer cette sauvegarde de classe.");
+      }finally{
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  function migrateClassPayload(payload){
+    const envelope = window.EPSMatrix.migrateState({
+      schemaVersion: typeof payload.schemaVersion === "number" ? payload.schemaVersion : 1,
+      classes: [structuredClone(payload.classPayload || {})]
+    });
+    return envelope.classes?.[0] || null;
+  }
+
+  function mergeClassBackup(rawClass, suffix){
+    if(!rawClass) return "Aucune donnée importée.";
+    const imported = prepareClassPayload(rawClass);
+    const existingStudents = new Set(cls.students.map((stu)=>stu.id));
+    let studentsAdded = 0;
+    imported.students.forEach((student)=>{
+      if(!existingStudents.has(student.id)){
+        cls.students.push(student);
+        existingStudents.add(student.id);
+        studentsAdded++;
+      }
+    });
+    cls.notes = window.EPSMatrix.normalizeNotes(cls.notes, cls);
+    const existingEvalIds = new Set(cls.evaluations.map((ev)=>ev.id));
+    let evalAdded = 0;
+    let evalDuplicated = 0;
+    imported.evaluations.forEach((evaluation)=>{
+      if(existingEvalIds.has(evaluation.id)){
+        const duplicated = duplicateEvaluationForClass(evaluation, suffix);
+        cls.evaluations.unshift(duplicated);
+        evalDuplicated++;
+      }else{
+        cls.evaluations.unshift(window.EPSMatrix.normalizeEvaluation(evaluation, cls));
+        existingEvalIds.add(evaluation.id);
+        evalAdded++;
+      }
+    });
+    return `${evalAdded} évaluation(s) ajoutée(s), ${evalDuplicated} dupliquée(s), ${studentsAdded} élève(s) ajouté(s).`;
+  }
+
+  function prepareClassPayload(rawClass){
+    const clone = structuredClone(rawClass || {});
+    clone.id = clone.id || window.EPSMatrix.genId("cls");
+    clone.students = Array.isArray(clone.students) ? clone.students.map((stu)=>({
+      id: stu?.id || window.EPSMatrix.genId("stu"),
+      name: stu?.name || "",
+      groupTag: stu?.groupTag || "",
+      absent: Boolean(stu?.absent),
+      dispense: Boolean(stu?.dispense),
+      niveau: stu?.niveau || "",
+      projet1: stu?.projet1 || "",
+      projet2: stu?.projet2 || "",
+      commentaire: stu?.commentaire || ""
+    })) : [];
+    clone.notes = window.EPSMatrix.normalizeNotes(clone.notes, clone);
+    clone.evaluations = Array.isArray(clone.evaluations)
+      ? clone.evaluations.map((evaluation)=>window.EPSMatrix.normalizeEvaluation(evaluation, clone))
+      : [];
+    return clone;
+  }
+
+  function duplicateEvaluationForClass(evaluation, suffix){
+    const copy = structuredClone(evaluation || {});
+    copy.id = window.EPSMatrix.genId("eval");
+    copy.activity = `${copy.activity || "Évaluation"} (restaurée ${suffix})`;
+    copy.createdAt = Date.now();
+     copy.archived = false;
+     copy.status = "active";
+    copy.archivedAt = null;
+    if(copy.data?.meta){
+      copy.data.meta.activity = copy.activity;
+    }
+    return window.EPSMatrix.normalizeEvaluation(copy, cls);
+  }
+
+  function formatTimestamp(date){
+    const year = date.getFullYear();
+    const month = String(date.getMonth()+1).padStart(2,"0");
+    const day = String(date.getDate()).padStart(2,"0");
+    const hours = String(date.getHours()).padStart(2,"0");
+    const minutes = String(date.getMinutes()).padStart(2,"0");
+    return `${year}-${month}-${day}_${hours}-${minutes}`;
+  }
+
+  function formatRestoreLabel(value){
+    const date = value ? new Date(value) : new Date();
+    if(Number.isNaN(date.getTime())) return new Date().toLocaleDateString("fr-FR");
+    return date.toLocaleDateString("fr-FR");
   }
   async function handleNewEvaluationRequest(){
     let input = null;

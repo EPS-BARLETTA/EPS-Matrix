@@ -164,6 +164,10 @@ table textarea{min-height:40px;resize:vertical;}
 :root[data-theme=\"dark\"] .groupPicker{background:rgba(15,23,42,.75);color:#e2e8ff;border-color:#273555;}
 tbody tr.grouped td{background:var(--group-bg);}
 tbody tr.groupStart td{border-top:4px solid var(--group-sep);}
+tbody tr.isDispense td{background:#f1f5f9;color:#64748b;}
+tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
+:root[data-theme="dark"] tbody tr.isDispense td{background:#1f2a44;color:#a3b2d8;}
+:root[data-theme="dark"] tbody tr.isAbsent td{background:#162033;color:#cad3f1;}
 .status{font-weight:600;}
 .status.success{color:#15803d;}
 .status.warning{color:#b45309;}
