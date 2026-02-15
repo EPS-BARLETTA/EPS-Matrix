@@ -27,18 +27,18 @@
         <p id="evalMeta" class="dragHint"></p>
       </div>
       <div class="navButtons">
-        <a class="btn secondary" id="backClass" href="classes.html">← Retour classe</a>
-        <button class="btn secondary" id="btnConfigure">Configurer</button>
-        <button class="btn secondary" id="btnScoring">Notation</button>
-        <button class="btn secondary" id="btnToggleNote">Afficher la note</button>
-        <button class="btn secondary" id="btnExportCsv">Sauvegarder CSV</button>
-        <label class="btn secondary" style="cursor:pointer;">
+        <a class="btn btn-success" id="backClass" href="classes.html">← Retour classe</a>
+        <button class="btn btn-neutral" id="btnConfigure">Configurer</button>
+        <button class="btn btn-neutral" id="btnScoring">Notation</button>
+        <button class="btn btn-neutral" id="btnToggleNote">Afficher la note</button>
+        <button class="btn btn-neutral" id="btnExportCsv">Sauvegarder CSV</button>
+        <label class="btn btn-neutral" style="cursor:pointer;">
           Importer CSV
           <input type="file" id="inputImportCsv" accept=".csv,text/csv" hidden />
         </label>
-        <button class="btn secondary" id="btnExportPdf">PDF</button>
-        <button class="btn secondary" id="btnTableOnly">Plein écran</button>
-        <a class="btn secondary helpLink" href="help.html" target="_blank" rel="noopener">🛈 Mode d’emploi</a>
+        <button class="btn btn-neutral" id="btnExportPdf">PDF</button>
+        <button class="btn btn-neutral" id="btnTableOnly">Plein écran</button>
+        <a class="btn btn-neutral helpLink" href="help.html" target="_blank" rel="noopener">🛈 Mode d’emploi</a>
       </div>
     </header>
     <div class="stats" id="evalStats"></div>
@@ -58,7 +58,7 @@
           <label>Nombre de terrains
             <input type="number" id="terrainCountInput" min="1" max="20" value="4" />
           </label>
-          <button class="btn secondary" type="button" id="btnInitTerrains">Initialiser le classement</button>
+          <button class="btn btn-primary" type="button" id="btnInitTerrains">Initialiser le classement</button>
         </div>
       </div>
       <div class="modePlaceholderCard" id="modePlaceholderCard">
@@ -79,8 +79,8 @@
           <p class="muted"><span id="rotationRoundLabel">Rotation #1</span> • Saisis les scores puis passe à la rotation suivante.</p>
         </div>
         <div class="rotationActions">
-          <button class="btn secondary" type="button" id="btnUndoRotation" disabled>Annuler la dernière rotation</button>
-          <button class="btn primary" type="button" id="btnNextRotation" disabled>Rotation suivante</button>
+          <button class="btn btn-neutral" type="button" id="btnUndoRotation" disabled>Annuler la dernière rotation</button>
+          <button class="btn btn-primary" type="button" id="btnNextRotation" disabled>Rotation suivante</button>
         </div>
       </div>
       <div id="rotationMatches" class="rotationMatches"></div>
@@ -93,8 +93,8 @@
           <p class="muted" id="rotationReadyDesc">Tu peux lancer la rotation suivante ou revoir le classement avant de valider.</p>
         </div>
         <div class="popupActions">
-          <button class="btn secondary" type="button" id="btnReadyReview">↺ Retour aux résultats</button>
-          <button class="btn primary" type="button" id="btnReadyNext">Rotation suivante</button>
+          <button class="btn btn-neutral" type="button" id="btnReadyReview">↺ Retour aux résultats</button>
+          <button class="btn btn-primary" type="button" id="btnReadyNext">Rotation suivante</button>
         </div>
       </div>
     </aside>
@@ -107,7 +107,7 @@
     <section class="resultsPanel hidden" id="resultsPanel">
       <div class="sectionHeader">
         <h3>Mode terrain – Résultats</h3>
-        <button class="btn secondary" type="button" id="btnExportResultsCsv">Exporter les résultats</button>
+        <button class="btn btn-neutral" type="button" id="btnExportResultsCsv">Exporter les résultats</button>
       </div>
       <div class="tableWrapper">
         <table>

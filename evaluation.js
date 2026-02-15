@@ -1902,10 +1902,11 @@ function assignGroupsRoundRobin(count){
       </div>`;
     const showCorrection = match.status === "done" && !isLocked;
     const canValidate = !isLocked && !match.forfeitEnabled && match.status !== "done";
-    const correctionButton = showCorrection ? `<button class="btn secondary tiny" type="button" data-action="reset-match" data-match="${match.id}">Corriger</button>` : "";
-    const validateButton = canValidate ? `<button class="btn primary tiny" type="button" data-action="validate-match" data-match="${match.id}">✅ Valider</button>` : "";
+    const correctionButton = showCorrection ? `<button class="btn btn-danger tiny" type="button" data-action="reset-match" data-match="${match.id}">Corriger</button>` : "";
+    const validateButton = canValidate ? `<button class="btn btn-primary tiny" type="button" data-action="validate-match" data-match="${match.id}">✅ Valider</button>` : "";
     const footerActions = [validateButton, correctionButton].filter(Boolean).join("");
-    return `<article class="rotationMatchCard ${doneClass} ${lockedClass}" data-match="${match.id}" data-group="${match.groupIndex || ""}">
+    const colorBucket = match.groupIndex ? (match.groupIndex - 1) % 6 : 0;
+    return `<article class="rotationMatchCard ${doneClass} ${lockedClass}" data-match="${match.id}" data-group="${match.groupIndex || ""}" data-terrain-color="${colorBucket}">
       <div class="rotationMatchHeader">
         <strong>${formatGroupLabel(match.groupIndex)}</strong>
         <span class="rotationMatchMeta">${refLabel}</span>
