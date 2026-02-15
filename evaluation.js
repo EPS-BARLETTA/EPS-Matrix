@@ -55,26 +55,38 @@
   const btnInitTerrains = document.getElementById("btnInitTerrains");
   const terrainGrid = document.getElementById("terrainGrid");
   const terrainDisabledHint = document.getElementById("terrainDisabledHint");
-  const terrainDetail = document.getElementById("terrainDetail");
-  const btnTerrainBack = document.getElementById("btnTerrainBack");
-  const btnTerrainPrev = document.getElementById("btnTerrainPrev");
-  const btnTerrainNext = document.getElementById("btnTerrainNext");
-  const terrainDetailTitle = document.getElementById("terrainDetailTitle");
-  const terrainDetailRef = document.getElementById("terrainDetailRef");
-  const terrainDetailPlayers = document.getElementById("terrainDetailPlayers");
-  const terrainScoreInput = document.getElementById("terrainScoreInput");
   const terrainMatchesList = document.getElementById("terrainMatchesList");
+  const matchModal = document.getElementById("matchModal");
+  const matchModalTitle = document.getElementById("matchModalTitle");
+  const matchWinnerSelect = document.getElementById("matchWinnerSelect");
+  const matchLoserSelect = document.getElementById("matchLoserSelect");
+  const matchScoreInput = document.getElementById("matchScoreInput");
+  const matchRefSelect = document.getElementById("matchRefSelect");
+  const matchForfeitToggle = document.getElementById("matchForfeitToggle");
+  const matchForfeitSelect = document.getElementById("matchForfeitSelect");
+  const correctionStudentSelect = document.getElementById("correctionStudentSelect");
+  const correctionTargetGroup = document.getElementById("correctionTargetGroup");
+  const correctionRefSelect = document.getElementById("correctionRefSelect");
+  const btnApplyMove = document.getElementById("btnApplyMove");
+  const btnApplyRef = document.getElementById("btnApplyRef");
   const btnValidateMatch = document.getElementById("btnValidateMatch");
   const resultsPanel = document.getElementById("resultsPanel");
   const resultsBody = document.getElementById("resultsBody");
   const btnExportResultsCsv = document.getElementById("btnExportResultsCsv");
-  const terrainNoteModal = document.getElementById("terrainNoteModal");
-  const terrainNoteInput = document.getElementById("terrainNoteInput");
-  const btnSaveTerrainNote = document.getElementById("btnSaveTerrainNote");
-  let terrainNoteStudentId = null;
-  let currentTerrainId = null;
-  let currentWinnerId = null;
-  let currentLoserId = null;
+  const playerModal = document.getElementById("playerModal");
+  const playerModalTitle = document.getElementById("playerModalTitle");
+  const playerModalMeta = document.getElementById("playerModalMeta");
+  const playerNoteInput = document.getElementById("playerNoteInput");
+  const playerRoleSelect = document.getElementById("playerRoleSelect");
+  const btnSavePlayer = document.getElementById("btnSavePlayer");
+  const studentSummaryModal = document.getElementById("studentSummaryModal");
+  const studentSummaryTitle = document.getElementById("studentSummaryTitle");
+  const studentSummaryMeta = document.getElementById("studentSummaryMeta");
+  const studentSummaryStats = document.getElementById("studentSummaryStats");
+  const studentMatchesList = document.getElementById("studentMatchesList");
+  let currentMatchGroupIndex = null;
+  let editingPlayerId = null;
+  let viewingStudentId = null;
 
   const evalTitleEl = document.getElementById("evalTitle");
   const evalMetaEl = document.getElementById("evalMeta");
@@ -127,7 +139,7 @@
     validation:{"Validé":"mid","À ajuster":"warn"},
     check:{"✅":"mid","❌":"warn"}
   };
-  const GROUP_VALUES = ["","1","2","3","4","5","6","7","8","A","B","C","D","E","F"];
+  const GROUP_VALUES = ["","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"];
   const GROUP_COLORS = ["#e0f2fe","#fee2e2","#dcfce7","#fef9c3","#ede9fe","#fce7f3","#cffafe"];
 
   let criteriaDraft = [];
@@ -155,23 +167,18 @@
 
   function renderTable(){
     const showNote = Boolean(evaluation.data.showNote);
-    const terrainModeEnabled = Boolean(evaluation.data.terrainMode?.enabled);
     const baseFields = getActiveBaseFields();
-    const headers = ["Prénom","Groupe"];
-    if(terrainModeEnabled){
-      headers.push("Terrain","Rôle");
-    }
-    headers.push(...baseFields.map((field)=>field.label), ...evaluation.data.criteria.map((c)=>c.label||"Critère"));
+    const headers = ["Prénom","Groupe", ...baseFields.map((field)=>field.label), ...evaluation.data.criteria.map((c)=>c.label||"Critère")];
     if(showNote){ headers.push("Note"); }
     headers.push("Statut");
     thead.innerHTML = headers.map((h)=>`<th>${h}</th>`).join("");
     const orderedStudents = sortStudentsForDisplay(evaluation.data.students);
-    tbody.innerHTML = orderedStudents.map((stu)=>rowHTML(stu, baseFields, showNote, terrainModeEnabled)).join("");
+    tbody.innerHTML = orderedStudents.map((stu)=>rowHTML(stu, baseFields, showNote)).join("");
     tbody.querySelectorAll("select[data-field]").forEach(decorateSelect);
     applyGroupingStyles();
   }
 
-  function rowHTML(stu, baseFields, showNote, terrainModeEnabled){
+  function rowHTML(stu, baseFields, showNote){
     const criteriaCells = evaluation.data.criteria.map((crit)=>{
       const info = window.EPSMatrix.CRITERIA_TYPES[crit.type] || {};
       if(info.isComment){
@@ -185,11 +192,9 @@
     const noteCell = showNote ? `<td data-cell="note"><strong>${computeScore(stu)}</strong></td>` : "";
     const rowClass = stu.absent ? "isAbsent" : (stu.dispense ? "isDispense" : "");
     const classAttr = rowClass ? ` class="${rowClass}"` : "";
-    const terrainCells = terrainModeEnabled ? buildTerrainCells(stu) : "";
     return `<tr${classAttr} data-id="${stu.id}" data-name="${stu.name}" data-group="${stu.groupTag||""}">
       <td>${nameCell(stu)}</td>
       <td>${groupCell(stu)}</td>
-      ${terrainCells}
       ${baseCells}
       ${criteriaCells}
       ${noteCell}
@@ -210,7 +215,8 @@
 
   function groupCell(stu){
     const options = GROUP_VALUES.map((value)=>{
-      return `<option value="${value}" ${value===stu.groupTag?"selected":""}>${value||"—"}</option>`;
+      const label = value ? `T${value}` : "—";
+      return `<option value="${value}" ${value===stu.groupTag?"selected":""}>${label}</option>`;
     }).join("");
     return `<select class="groupPicker" data-field="groupTag">${options}</select>`;
   }
@@ -221,24 +227,6 @@
       return `<td><textarea data-field="${field.id}">${value}</textarea></td>`;
     }
     return `<td><input type="text" data-field="${field.id}" value="${value}" /></td>`;
-  }
-
-  function buildTerrainCells(stu){
-    const terrainMode = evaluation.data.terrainMode;
-    const terrains = Array.isArray(terrainMode?.terrains) ? terrainMode.terrains : [];
-    const terrainOptions = ['<option value="">—</option>', ...terrains.map((terrain)=>`<option value="${terrain.id}" ${terrain.id===stu.terrainId?"selected":""}>${terrain.name}</option>`)].join("");
-    const roleOptions = [
-      `<option value="player" ${stu.role==="player"?"selected":""}>Joueur</option>`,
-      `<option value="ref" ${stu.role==="ref"?"selected":""}>Arbitre</option>`
-    ].join("");
-    return `
-      <td class="terrainCell">
-        <select data-field="terrainId" class="terrainPicker">${terrainOptions}</select>
-      </td>
-      <td class="terrainCell terrainRoleCell">
-        <select data-field="role" class="terrainPicker">${roleOptions}</select>
-        <button type="button" class="terrainNoteButton" title="Note terrain" data-action="open-terrain-note">📝</button>
-      </td>`;
   }
 
   function getOptionsForCriterion(crit, info){
@@ -305,6 +293,11 @@
       const priorityA = studentDisplayPriority(a.stu);
       const priorityB = studentDisplayPriority(b.stu);
       if(priorityA !== priorityB) return priorityA - priorityB;
+      if(priorityA === 0){
+        const groupA = window.EPSMatrix.parseGroupIndex(a.stu.groupTag) || 999;
+        const groupB = window.EPSMatrix.parseGroupIndex(b.stu.groupTag) || 999;
+        if(groupA !== groupB) return groupA - groupB;
+      }
       return a.idx - b.idx;
     }).map((entry)=>entry.stu);
   }
@@ -351,7 +344,6 @@
   tbody.addEventListener("input", handleFieldChange);
   tbody.addEventListener("change", handleFieldChange);
   tbody.addEventListener("click", handlePresenceClick);
-  tbody.addEventListener("click", handleTerrainNoteClick);
 
   function handleFieldChange(event){
     const field = event.target.dataset.field;
@@ -362,19 +354,6 @@
     if(!student) return;
     window.EPSMatrix.ensureTerrainStudentFields(student);
     const value = event.target.value;
-    if(field === "terrainId"){
-      student.terrainId = value;
-      persist();
-      render();
-      return;
-    }
-    if(field === "role"){
-      student.role = value || "player";
-      enforceSingleRefPerTerrain(evaluation.data.terrainMode);
-      persist();
-      render();
-      return;
-    }
     student[field] = value;
     evaluation.data.savedAt = Date.now();
     window.EPSMatrix.saveState(state);
@@ -382,6 +361,14 @@
       decorateSelect(event.target);
     }
     if(field === "groupTag"){
+      student.groupTag = window.EPSMatrix.formatGroupTag ? (window.EPSMatrix.formatGroupTag(value) || value) : value;
+      if(student.role === "ref"){
+        const groupIndex = window.EPSMatrix.parseGroupIndex(student.groupTag);
+        if(groupIndex){
+          enforceSingleRefForGroup(groupIndex, student.id);
+        }
+      }
+      persist();
       render();
       return;
     }
@@ -411,15 +398,6 @@
     render();
   }
 
-  function handleTerrainNoteClick(event){
-    const noteBtn = event.target.closest("[data-action='open-terrain-note']");
-    if(!noteBtn) return;
-    const row = noteBtn.closest("tr");
-    if(!row) return;
-    const student = evaluation.data.students.find((stu)=>stu.id === row.dataset.id);
-    if(!student) return;
-    openTerrainNoteModal(student);
-  }
 
   document.getElementById("btnExportCsv")?.addEventListener("click", exportCSV);
   document.getElementById("inputImportCsv")?.addEventListener("change", handleImportCsv);
@@ -441,14 +419,6 @@
     persist();
     render();
   });
-  btnSaveTerrainNote?.addEventListener("click", ()=>{
-    if(!terrainNoteStudentId) return;
-    const student = evaluation.data.students.find((stu)=>stu.id === terrainNoteStudentId);
-    if(!student) return;
-    student.freeNote = terrainNoteInput?.value || "";
-    persist();
-    closeTerrainNoteModal();
-  });
   document.getElementById("btnChatGPT")?.addEventListener("click", ()=>{
     if(chatgptPrompt){
       chatgptPrompt.value = buildChatGPTPrompt();
@@ -468,21 +438,21 @@
     window.open("https://chatgpt.com/", "_blank","noopener");
   });
   btnExportResultsCsv?.addEventListener("click", exportResultsCsv);
-  terrainGrid?.addEventListener("click", handleTerrainCardClick);
-  btnTerrainBack?.addEventListener("click", closeTerrainDetail);
-  btnTerrainPrev?.addEventListener("click", ()=>navigateTerrain(-1));
-  btnTerrainNext?.addEventListener("click", ()=>navigateTerrain(1));
-  terrainDetailPlayers?.addEventListener("click", handleTerrainDetailClick);
-  btnValidateMatch?.addEventListener("click", validateTerrainMatch);
+  resultsBody?.addEventListener("click", handleResultsClick);
 
   document.querySelectorAll("[data-close-modal]").forEach((btn)=>{
     btn.addEventListener("click", ()=>{
       const modal = btn.closest(".modal");
       if(modal){
         modal.classList.add("hidden");
-        if(modal.id === "terrainNoteModal"){
-          terrainNoteStudentId = null;
-          if(terrainNoteInput) terrainNoteInput.value = "";
+        if(modal.id === "matchModal"){
+          resetMatchModal();
+        }else if(modal.id === "playerModal"){
+          editingPlayerId = null;
+        }else if(modal.id === "studentSummaryModal"){
+          viewingStudentId = null;
+          if(studentMatchesList) studentMatchesList.innerHTML = "";
+          if(studentSummaryStats) studentSummaryStats.innerHTML = "";
         }
       }
     });
@@ -932,42 +902,38 @@
   }
 
   function setupTerrainEvents(){
-    if(!terrainPanel || !terrainGrid) return;
+    if(!terrainPanel) return;
     if(terrainToggle){
       terrainToggle.checked = Boolean(evaluation.data.terrainMode.enabled);
       terrainToggle.addEventListener("change", ()=>{
         evaluation.data.terrainMode.enabled = terrainToggle.checked;
+        if(terrainToggle.checked){
+          enforceSingleRefEverywhere();
+        }
         persist();
         renderTerrainSection();
+        renderResultsTable();
       });
     }
     if(terrainCountInput){
       terrainCountInput.value = evaluation.data.terrainMode.terrainCount;
       terrainCountInput.addEventListener("change", ()=>{
-        const nextValue = clampTerrainCountInput(terrainCountInput.value);
-        terrainCountInput.value = nextValue;
-        evaluation.data.terrainMode.terrainCount = nextValue;
+        terrainCountInput.value = clampTerrainCountInput(terrainCountInput.value);
+        evaluation.data.terrainMode.terrainCount = Number(terrainCountInput.value);
         persist();
       });
     }
-    btnInitTerrains?.addEventListener("click", ()=>{
-      initializeTerrains();
+    btnInitTerrains?.addEventListener("click", initializeTerrains);
+    terrainGrid?.addEventListener("click", handleTerrainGridClick);
+    matchForfeitToggle?.addEventListener("change", ()=>{
+      if(matchForfeitSelect){
+        matchForfeitSelect.disabled = !matchForfeitToggle.checked;
+      }
     });
-  }
-
-  function openTerrainNoteModal(student){
-    if(!terrainNoteModal || !terrainNoteInput) return;
-    terrainNoteStudentId = student.id;
-    terrainNoteInput.value = student.freeNote || "";
-    terrainNoteModal.classList.remove("hidden");
-    setTimeout(()=>{ terrainNoteInput.focus(); }, 50);
-  }
-
-  function closeTerrainNoteModal(){
-    if(!terrainNoteModal) return;
-    terrainNoteStudentId = null;
-    if(terrainNoteInput){ terrainNoteInput.value = ""; }
-    terrainNoteModal.classList.add("hidden");
+    btnApplyMove?.addEventListener("click", applyManualMove);
+    btnApplyRef?.addEventListener("click", applyManualRef);
+    btnValidateMatch?.addEventListener("click", handleMatchValidation);
+    btnSavePlayer?.addEventListener("click", savePlayerModal);
   }
 
   function clampTerrainCountInput(value){
@@ -978,66 +944,56 @@
     const mode = evaluation.data.terrainMode;
     const count = clampTerrainCountInput(terrainCountInput?.value || mode.terrainCount);
     mode.terrainCount = count;
-    mode.terrains = buildTerrainList(count, mode.terrains);
-    assignStudentsToTerrains(mode);
-    enforceSingleRefPerTerrain(mode);
+    assignGroupsRoundRobin(count);
+    enforceSingleRefEverywhere();
     persist();
     render();
   }
 
-  function buildTerrainList(count, currentList){
-    const terrains = [];
-    const existing = Array.isArray(currentList) ? currentList : [];
-    for(let index=1; index<=count; index++){
-      const fallbackId = `t${index}`;
-      const match = existing.find((terrain)=>terrain && (terrain.index === index || terrain.id === fallbackId));
-      terrains.push({
-        id: match?.id || fallbackId,
-        name: match?.name || `Terrain ${index}`,
-        index
-      });
+  function assignGroupsRoundRobin(count){
+    const present = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
+    present.forEach((stu, idx)=>{
+      const target = (idx % count) + 1;
+      setStudentGroup(stu, target);
+      if(!stu.startGroupTag){
+        stu.startGroupTag = String(target);
+      }
+      if(stu.role !== "ref"){
+        stu.role = "player";
+      }
+    });
+  }
+
+  function setStudentGroup(student, groupIndex){
+    const normalized = window.EPSMatrix.formatGroupTag ? window.EPSMatrix.formatGroupTag(groupIndex) : String(groupIndex);
+    student.groupTag = normalized;
+    if(!student.startGroupTag){
+      student.startGroupTag = normalized;
     }
-    return terrains;
   }
 
-  function assignStudentsToTerrains(mode){
-    const terrainIds = mode.terrains.map((terrain)=>terrain.id);
-    if(!terrainIds.length) return;
-    const presentStudents = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
-    let cursor = 0;
-    presentStudents.forEach((stu)=>{
-      window.EPSMatrix.ensureTerrainStudentFields(stu);
-      if(terrainIds.includes(stu.terrainId)){
-        if(!stu.startTerrainId){
-          stu.startTerrainId = stu.terrainId;
-        }
-        return;
-      }
-      const targetId = terrainIds[cursor % terrainIds.length];
-      cursor++;
-      stu.terrainId = targetId;
-      if(!stu.startTerrainId){
-        stu.startTerrainId = targetId;
-      }
-    });
-  }
-
-  function enforceSingleRefPerTerrain(mode){
-    const validIds = new Set(mode.terrains.map((terrain)=>terrain.id));
-    const refsByTerrain = new Map();
+  function enforceSingleRefForGroup(groupIndex, keepId){
+    const targetIndex = window.EPSMatrix.parseGroupIndex(groupIndex);
     evaluation.data.students.forEach((stu)=>{
-      if(!stu.terrainId || !validIds.has(stu.terrainId) || stu.role !== "ref"){
-        if(stu.role !== "ref"){
-          stu.role = "player";
+      const stuIndex = window.EPSMatrix.parseGroupIndex(stu.groupTag);
+      if(stuIndex !== targetIndex) return;
+      if(keepId && stu.id === keepId){
+        stu.role = "ref";
+        return;
+      }
+      if(stu.role === "ref"){
+        if(!keepId){
+          keepId = stu.id;
+          return;
         }
-        return;
+        stu.role = "player";
       }
-      if(!refsByTerrain.has(stu.terrainId)){
-        refsByTerrain.set(stu.terrainId, stu.id);
-        return;
-      }
-      stu.role = "player";
     });
+  }
+
+  function enforceSingleRefEverywhere(){
+    const indexes = getAllGroupIndexes();
+    indexes.forEach((idx)=>enforceSingleRefForGroup(idx));
   }
 
   function renderTerrainSection(){
@@ -1055,191 +1011,344 @@
       btnInitTerrains.classList.toggle("disabled", !mode.enabled);
     }
     if(!mode.enabled){
-      closeTerrainDetail();
       terrainGrid.innerHTML = "";
       terrainDisabledHint?.classList.remove("hidden");
+      renderMatchesList([]);
       return;
     }
     terrainDisabledHint?.classList.add("hidden");
     const cards = [];
-    const terrainIds = new Set(mode.terrains.map((terrain)=>terrain.id));
-    const present = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
-    const horsTerrain = evaluation.data.students.filter((stu)=>stu.absent || stu.dispense);
-    let unassigned = present.filter((stu)=>!terrainIds.has(stu.terrainId));
-    if(unassigned.length && terrainIds.size){
-      assignStudentsToTerrains(mode);
-      persist();
-      unassigned = present.filter((stu)=>!terrainIds.has(stu.terrainId));
+    const groups = buildTerrainGroups();
+    groups.forEach((group)=>{ cards.push(buildTerrainCard(group)); });
+    const ungrouped = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense && !window.EPSMatrix.parseGroupIndex(stu.groupTag));
+    if(ungrouped.length){
+      cards.push(buildListCard("À affecter", ungrouped, "warning"));
     }
-    mode.terrains.forEach((terrain)=>{
-      cards.push(buildTerrainCard(terrain));
-    });
-    if(unassigned.length){
-      cards.push(buildListCard("À affecter", unassigned, "warning"));
-    }
-    if(horsTerrain.length){
-      cards.push(buildListCard("Hors terrain (ABS/DISP)", horsTerrain, "muted"));
+    const off = evaluation.data.students.filter((stu)=>stu.absent || stu.dispense);
+    if(off.length){
+      cards.push(buildListCard("Hors terrain (ABS/DISP)", off, "muted"));
     }
     terrainGrid.innerHTML = cards.join("");
-    if(currentTerrainId){
-      renderTerrainDetail();
-    }
+    renderMatchesList(mode.matches || []);
   }
 
-  function renderResultsTable(){
-    if(!resultsPanel || !resultsBody) return;
-    const mode = evaluation.data.terrainMode;
-    if(!mode?.enabled){
-      resultsPanel.classList.add("hidden");
-      resultsBody.innerHTML = "";
-      return;
-    }
-    resultsPanel.classList.remove("hidden");
-    const terrainIndexMap = new Map((mode.terrains||[]).map((terrain)=>[terrain.id, terrain.index]));
-    const terrainNameMap = new Map((mode.terrains||[]).map((terrain)=>[terrain.id, terrain.name]));
-    const active = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
-    const ranked = active.map((stu)=>{
-      window.EPSMatrix.ensureTerrainStudentFields(stu);
-      const currentIndex = terrainIndexMap.get(stu.terrainId) || 999;
-      return {
-        id: stu.id,
-        name: stu.name,
-        start: terrainNameMap.get(stu.startTerrainId) || "—",
-        current: terrainNameMap.get(stu.terrainId) || "—",
-        stats:{
-          played: stu.stats?.played ?? 0,
-          wins: stu.stats?.wins ?? 0,
-          losses: stu.stats?.losses ?? 0,
-          points: stu.stats?.points ?? 0
-        },
-        sortKey:{points:stu.stats.points, wins:stu.stats.wins, index:currentIndex}
-      };
-    }).sort((a,b)=>{
-      if(b.sortKey.points !== a.sortKey.points) return b.sortKey.points - a.sortKey.points;
-      if(b.sortKey.wins !== a.sortKey.wins) return b.sortKey.wins - a.sortKey.wins;
-      if(a.sortKey.index !== b.sortKey.index) return a.sortKey.index - b.sortKey.index;
-      return a.name.localeCompare(b.name,"fr");
-    });
-    ranked.forEach((entry, idx)=>{ entry.rank = idx + 1; });
-    const off = evaluation.data.students.filter((stu)=>stu.absent || stu.dispense).map((stu)=>({
-      id: stu.id,
-      name: stu.name,
-      start: terrainNameMap.get(stu.startTerrainId) || "—",
-      current: stu.absent ? "ABS" : "DISP",
-      stats: {played:stu.stats?.played||0,wins:stu.stats?.wins||0,losses:stu.stats?.losses||0,points:stu.stats?.points||0},
-      rank: "—",
-      rowClass: stu.absent ? "isAbsent" : "isDispense"
+  function buildTerrainGroups(){
+    const indexes = getAllGroupIndexes();
+    return indexes.map((index)=>({
+      index,
+      label: formatGroupLabel(index),
+      students: evaluation.data.students.filter((stu)=>{
+        if(stu.absent || stu.dispense) return false;
+        return window.EPSMatrix.parseGroupIndex(stu.groupTag) === index;
+      })
     }));
-    const rows = ranked.concat(off);
-    resultsBody.innerHTML = rows.map((entry)=>{
-      const rowClass = entry.rowClass ? ` class="${entry.rowClass}"` : "";
-      return `<tr${rowClass}>
-        <td>${entry.rank ?? "—"}</td>
-        <td>${escapeHtml(entry.name)}</td>
-        <td>${escapeHtml(entry.start)}</td>
-        <td>${escapeHtml(entry.current)}</td>
-        <td>${entry.stats?.played ?? 0}</td>
-        <td>${entry.stats?.wins ?? 0}</td>
-        <td>${entry.stats?.losses ?? 0}</td>
-        <td>${entry.stats?.points ?? 0}</td>
-      </tr>`;
-    }).join("");
   }
 
-  function exportResultsCsv(){
-    if(!evaluation.data.terrainMode?.enabled){
-      alert("Active le mode terrain pour exporter les résultats.");
-      return;
+  function getAllGroupIndexes(){
+    const set = new Set();
+    evaluation.data.students.forEach((stu)=>{
+      const parsed = window.EPSMatrix.parseGroupIndex(stu.groupTag);
+      if(parsed) set.add(parsed);
+    });
+    if(!set.size){
+      const fallback = evaluation.data.terrainMode?.terrainCount || DEFAULT_TERRAIN_COUNT;
+      for(let i=1;i<=fallback;i++){ set.add(i); }
     }
-    const terrainNameMap = new Map((evaluation.data.terrainMode.terrains||[]).map((terrain)=>[terrain.id, terrain.name]));
-    const header = ["student_id","name","startTerrain","currentTerrain","played","wins","losses","points","rank"];
-    const rows = evaluation.data.students.map((stu)=>{
-      window.EPSMatrix.ensureTerrainStudentFields(stu);
-      const rank = computeStudentRank(stu.id);
-      return [
-        stu.id || "",
-        stu.name || "",
-        terrainNameMap.get(stu.startTerrainId) || "",
-        terrainNameMap.get(stu.terrainId) || (stu.absent?"ABS":stu.dispense?"DISP":""),
-        stu.stats?.played || 0,
-        stu.stats?.wins || 0,
-        stu.stats?.losses || 0,
-        stu.stats?.points || 0,
-        rank || ""
-      ];
-    });
-    const csv = [header, ...rows].map((line)=>line.map((cell)=>`"${String(cell ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
-    const filename = `EPSMatrix_resultats_${window.EPSMatrix.sanitizeFileName(evaluation.activity)}_${new Date().toISOString().slice(0,10)}.csv`;
-    downloadFile(filename, csv, "text/csv");
+    return Array.from(set).sort((a,b)=>a-b).slice(0, MAX_TERRAINS);
   }
 
-  function computeStudentRank(studentId){
-    const mode = evaluation.data.terrainMode;
-    if(!mode?.enabled) return "";
-    const terrainIndexMap = new Map((mode.terrains||[]).map((terrain)=>[terrain.id, terrain.index]));
-    const active = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
-    const ranked = active.map((stu)=>{
-      window.EPSMatrix.ensureTerrainStudentFields(stu);
-      const currentIndex = terrainIndexMap.get(stu.terrainId) || 999;
-      return {
-        id: stu.id,
-        points: stu.stats.points,
-        wins: stu.stats.wins,
-        index: currentIndex,
-        name: stu.name
-      };
-    }).sort((a,b)=>{
-      if(b.points !== a.points) return b.points - a.points;
-      if(b.wins !== a.wins) return b.wins - a.wins;
-      if(a.index !== b.index) return a.index - b.index;
-      return a.name.localeCompare(b.name,"fr");
-    });
-    const foundIndex = ranked.findIndex((entry)=>entry.id === studentId);
-    return foundIndex === -1 ? "" : (foundIndex + 1);
+  function getMaxGroupIndex(){
+    const indexes = getAllGroupIndexes();
+    return indexes.length ? indexes[indexes.length - 1] : evaluation.data.terrainMode?.terrainCount || 1;
   }
 
-  function buildTerrainCard(terrain){
-    const students = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense && stu.terrainId === terrain.id);
-    const ref = students.find((stu)=>stu.role === "ref");
-    const players = students.filter((stu)=>stu.role !== "ref");
-    const refBlock = ref ? terrainChipMarkup(ref, "ref") : `<div class="terrainChip empty">Aucun arbitre</div>`;
-    const playerList = players.length ? players.map((stu)=>terrainChipMarkup(stu)).join("") : `<p class="muted smallText">Aucun joueur assigné.</p>`;
-    return `<article class="terrainCard" data-terrain="${terrain.id}">
+  function buildTerrainCard(group){
+    const ref = group.students.find((stu)=>stu.role === "ref");
+    const players = group.students.slice().sort((a,b)=>a.name.localeCompare(b.name,"fr"));
+    const studentList = players.length ? players.map((stu)=>{
+      const badges = [];
+      if(stu.role === "ref"){ badges.push('<span class="badge ref">Arbitre</span>'); }
+      const startInfo = formatStartBadge(stu.startGroupTag);
+      const note = stu.freeNote ? `<span class="terrainNoteBadge" title="${escapeHtml(stu.freeNote)}">📝</span>` : "";
+      return `<li class="terrainStudent" data-action="open-player" data-student="${stu.id}" data-group="${group.index}">
+        <div>
+          <strong>${escapeHtml(stu.name)}</strong> ${note}
+          <span class="terrainStudentMeta">${startInfo}</span>
+        </div>
+        <div class="terrainStudentBadges">${badges.join("")}</div>
+      </li>`;
+    }).join("") : `<p class="muted smallText">Aucun joueur affecté.</p>`;
+    const refBlock = ref ? `<p class="terrainLabel">Arbitre : <strong>${escapeHtml(ref.name)}</strong></p>` : `<p class="terrainLabel">Aucun arbitre</p>`;
+    return `<article class="terrainCard" data-group="${group.index}">
       <header>
-        <h3>${terrain.name}</h3>
-        <span class="terrainIndex">#${terrain.index}</span>
+        <div>
+          <h3>${group.label}</h3>
+          <p class="terrainLabel">Joueurs : ${group.students.length}</p>
+        </div>
+        <button class="btn secondary" type="button" data-action="open-match" data-group="${group.index}">Match</button>
       </header>
-      <section>
-        <p class="terrainLabel">Arbitre</p>
-        ${refBlock}
-      </section>
-      <section>
-        <p class="terrainLabel">Joueurs</p>
-        <div class="terrainChipList">${playerList}</div>
-      </section>
+      ${refBlock}
+      <ul class="terrainStudentList">${studentList}</ul>
     </article>`;
   }
 
   function buildListCard(title, students, tone){
-    if(!students.length){
-      return `<article class="terrainCard compact"><header><h3>${title}</h3></header><p class="muted smallText">Aucun élève.</p></article>`;
-    }
     const entries = students.map((stu)=>{
-      const badges = [];
-      if(stu.absent) badges.push("ABS");
-      if(stu.dispense) badges.push("DISP");
-      return `<li>${escapeHtml(stu.name)} ${badges.length ? `<span class="badge ${tone||""}">${badges.join("/")}</span>` : ""}</li>`;
+      const reason = stu.absent ? "ABS" : (stu.dispense ? "DISP" : "");
+      return `<li>${escapeHtml(stu.name)} ${reason ? `<span class="badge ${tone||""}">${reason}</span>` : ""}</li>`;
     }).join("");
     return `<article class="terrainCard compact">
       <header><h3>${title}</h3></header>
-      <ul class="terrainList">${entries}</ul>
+      <ul class="terrainList">${entries || '<li class="muted">Aucun élève.</li>'}</ul>
     </article>`;
   }
 
-  function terrainChipMarkup(stu, extraClass){
-    const noteBadge = stu.freeNote ? `<span class="terrainNoteBadge" title="${escapeHtml(stu.freeNote)}">📝</span>` : "";
-    const className = extraClass ? `terrainChip ${extraClass}` : "terrainChip";
-    return `<div class="${className}">${escapeHtml(stu.name)}${noteBadge}</div>`;
+  function formatGroupLabel(index){
+    const parsed = window.EPSMatrix.parseGroupIndex ? window.EPSMatrix.parseGroupIndex(index) : Number(index) || 1;
+    return `Terrain ${parsed || 1}`;
+  }
+
+  function formatStartBadge(tag){
+    const idx = window.EPSMatrix.parseGroupIndex(tag);
+    return idx ? `Départ : T${idx}` : "Départ : —";
+  }
+
+  function renderMatchesList(matches){
+    if(!terrainMatchesList) return;
+    if(!evaluation.data.terrainMode.enabled){
+      terrainMatchesList.innerHTML = '<li class="muted">Active le mode terrain pour suivre les matches.</li>';
+      return;
+    }
+    const recent = (matches||[]).slice(0,10);
+    if(!recent.length){
+      terrainMatchesList.innerHTML = '<li class="muted">Aucun match enregistré.</li>';
+      return;
+    }
+    terrainMatchesList.innerHTML = recent.map((match)=>formatMatchEntry(match)).join("");
+  }
+
+  function formatMatchEntry(match){
+    const winner = findStudentName(match.winnerId);
+    const loser = findStudentName(match.loserId);
+    const ref = findStudentName(match.refId);
+    const score = match.scoreText ? ` • ${escapeHtml(match.scoreText)}` : "";
+    const refLabel = match.refId ? ` – arbitre ${ref}` : "";
+    const timeLabel = match.at ? new Date(match.at).toLocaleTimeString("fr-FR",{hour:"2-digit", minute:"2-digit"}) : "";
+    const groupLabel = formatGroupLabel(match.groupIndex || 1);
+    const abandon = match.forfeitId ? ` – abandon ${findStudentName(match.forfeitId)}` : "";
+    return `<li><span class="muted">${groupLabel}</span> • <strong>${winner}</strong> bat ${loser}${score}${refLabel}${abandon}<span class="muted"> (${timeLabel})</span></li>`;
+  }
+
+  function findStudentName(id){
+    if(!id) return "—";
+    const student = evaluation.data.students.find((stu)=>stu.id === id);
+    return student ? escapeHtml(student.name) : "—";
+  }
+
+  function handleTerrainGridClick(event){
+    const action = event.target.dataset.action || event.target.closest("[data-action]")?.dataset.action;
+    if(!action) return;
+    const target = event.target.closest("[data-action]");
+    if(action === "open-match"){
+      const groupIndex = Number(target?.dataset.group || event.target.dataset.group);
+      if(groupIndex) openMatchModal(groupIndex);
+      return;
+    }
+    if(action === "open-player"){
+      const studentId = target?.dataset.student;
+      if(studentId) openPlayerModal(studentId);
+    }
+  }
+
+  function openMatchModal(groupIndex){
+    if(!matchModal) return;
+    currentMatchGroupIndex = groupIndex;
+    if(matchModalTitle){
+      matchModalTitle.textContent = `Match – ${formatGroupLabel(groupIndex)}`;
+    }
+    populateMatchForm(groupIndex);
+    matchModal.classList.remove("hidden");
+  }
+
+  function resetMatchModal(){
+    currentMatchGroupIndex = null;
+    matchWinnerSelect && (matchWinnerSelect.innerHTML = "");
+    matchLoserSelect && (matchLoserSelect.innerHTML = "");
+    matchRefSelect && (matchRefSelect.innerHTML = "");
+    matchScoreInput && (matchScoreInput.value = "");
+    matchForfeitToggle && (matchForfeitToggle.checked = false);
+    matchForfeitSelect && (matchForfeitSelect.innerHTML = "", matchForfeitSelect.disabled = true);
+    correctionStudentSelect && (correctionStudentSelect.innerHTML = "");
+    correctionTargetGroup && (correctionTargetGroup.innerHTML = "");
+    correctionRefSelect && (correctionRefSelect.innerHTML = "");
+  }
+
+  function populateMatchForm(groupIndex){
+    const players = getGroupStudents(groupIndex);
+    const options = players.map((stu)=>`<option value="${stu.id}">${escapeHtml(stu.name)}</option>`).join("");
+    if(matchWinnerSelect) matchWinnerSelect.innerHTML = `<option value="">Sélectionner</option>${options}`;
+    if(matchLoserSelect) matchLoserSelect.innerHTML = `<option value="">Sélectionner</option>${options}`;
+    const refOptions = ['<option value="">Aucun</option>', ...players.map((stu)=>`<option value="${stu.id}" ${stu.role==="ref"?"selected":""}>${escapeHtml(stu.name)}</option>`)].join("");
+    if(matchRefSelect) matchRefSelect.innerHTML = refOptions;
+    if(matchScoreInput) matchScoreInput.value = "";
+    if(matchForfeitSelect){
+      matchForfeitSelect.innerHTML = `<option value="">—</option>${options}`;
+      matchForfeitSelect.disabled = true;
+    }
+    if(correctionStudentSelect) correctionStudentSelect.innerHTML = `<option value="">Choisir</option>${options}`;
+    const targetOptions = getAllGroupIndexes().map((idx)=>`<option value="${idx}">${formatGroupLabel(idx)}</option>`).join("");
+    if(correctionTargetGroup) correctionTargetGroup.innerHTML = targetOptions;
+    if(correctionRefSelect) correctionRefSelect.innerHTML = `<option value="">Choisir</option>${options}`;
+    if(btnValidateMatch) btnValidateMatch.disabled = players.length < 2;
+  }
+
+  function getGroupStudents(index){
+    return evaluation.data.students.filter((stu)=>{
+      if(stu.absent || stu.dispense) return false;
+      return window.EPSMatrix.parseGroupIndex(stu.groupTag) === index;
+    });
+  }
+
+  function handleMatchValidation(){
+    if(!currentMatchGroupIndex || !matchWinnerSelect || !matchLoserSelect) return;
+    const winnerId = matchWinnerSelect.value;
+    const loserId = matchLoserSelect.value;
+    if(!winnerId || !loserId || winnerId === loserId){
+      alert("Sélectionne un gagnant et un perdant différents.");
+      return;
+    }
+    const winner = evaluation.data.students.find((stu)=>stu.id === winnerId);
+    const loser = evaluation.data.students.find((stu)=>stu.id === loserId);
+    if(!winner || !loser){
+      alert("Élève introuvable.");
+      return;
+    }
+    const refId = matchRefSelect?.value || null;
+    const ref = refId ? evaluation.data.students.find((stu)=>stu.id === refId) : null;
+    const scoreText = matchScoreInput?.value?.trim() || "";
+    const forfeitId = matchForfeitToggle?.checked ? (matchForfeitSelect?.value || null) : null;
+    recordMatchResult({groupIndex:currentMatchGroupIndex, winner, loser, ref, scoreText, forfeitId});
+    resetMatchModal();
+    matchModal?.classList.add("hidden");
+  }
+
+  function recordMatchResult(payload){
+    const mode = evaluation.data.terrainMode;
+    applyMatchResult(payload);
+    mode.matches = Array.isArray(mode.matches) ? mode.matches : [];
+    mode.matches.unshift({
+      at: new Date().toISOString(),
+      groupIndex: payload.groupIndex,
+      winnerId: payload.winner.id,
+      loserId: payload.loser.id,
+      refId: payload.ref?.id || null,
+      scoreText: payload.scoreText || "",
+      forfeitId: payload.forfeitId || null
+    });
+    if(mode.matches.length > 200){
+      mode.matches = mode.matches.slice(0,200);
+    }
+    persist();
+    render();
+  }
+
+  function applyMatchResult({groupIndex, winner, loser, ref, scoreText, forfeitId}){
+    const currentIndex = groupIndex || window.EPSMatrix.parseGroupIndex(winner.groupTag) || 1;
+    const upIndex = currentIndex > 1 ? currentIndex - 1 : 1;
+    const maxIndex = Math.max(getMaxGroupIndex(), evaluation.data.terrainMode?.terrainCount || currentIndex);
+    let downIndex = currentIndex < maxIndex ? currentIndex + 1 : maxIndex;
+    downIndex = Math.min(downIndex, MAX_TERRAINS);
+    setStudentGroup(winner, upIndex);
+    setStudentGroup(loser, downIndex);
+    winner.role = "ref";
+    loser.role = "player";
+    if(ref){
+      setStudentGroup(ref, currentIndex);
+      ref.role = "player";
+    }
+    enforceSingleRefForGroup(upIndex, winner.id);
+    enforceSingleRefForGroup(currentIndex);
+    window.EPSMatrix.ensureTerrainStudentFields(winner);
+    window.EPSMatrix.ensureTerrainStudentFields(loser);
+  }
+
+  function applyManualMove(){
+    const studentId = correctionStudentSelect?.value;
+    const targetGroup = Number(correctionTargetGroup?.value);
+    if(!studentId || !targetGroup){
+      alert("Sélectionne un élève et un terrain cible.");
+      return;
+    }
+    const student = evaluation.data.students.find((stu)=>stu.id === studentId);
+    if(!student){
+      alert("Élève introuvable.");
+      return;
+    }
+    setStudentGroup(student, targetGroup);
+    if(student.role === "ref"){
+      enforceSingleRefForGroup(targetGroup, student.id);
+    }
+    persist();
+    render();
+  }
+
+  function applyManualRef(){
+    const studentId = correctionRefSelect?.value;
+    if(!studentId){
+      alert("Choisis un élève à désigner comme arbitre.");
+      return;
+    }
+    const student = evaluation.data.students.find((stu)=>stu.id === studentId);
+    if(!student){
+      alert("Élève introuvable.");
+      return;
+    }
+    const groupIndex = window.EPSMatrix.parseGroupIndex(student.groupTag);
+    if(!groupIndex){
+      alert("Assigne ce joueur à un terrain avant d'en faire un arbitre.");
+      return;
+    }
+    student.role = "ref";
+    enforceSingleRefForGroup(groupIndex, student.id);
+    persist();
+    render();
+  }
+
+  function openPlayerModal(studentId){
+    if(!playerModal) return;
+    const student = evaluation.data.students.find((stu)=>stu.id === studentId);
+    if(!student){
+      alert("Élève introuvable.");
+      return;
+    }
+    editingPlayerId = student.id;
+    const currentIndex = window.EPSMatrix.parseGroupIndex(student.groupTag);
+    if(playerModalTitle) playerModalTitle.textContent = student.name;
+    if(playerModalMeta) playerModalMeta.textContent = `${formatGroupLabel(currentIndex || "—")} • ${formatStartBadge(student.startGroupTag)}`;
+    if(playerNoteInput) playerNoteInput.value = student.freeNote || "";
+    if(playerRoleSelect) playerRoleSelect.value = student.role || "player";
+    playerModal.classList.remove("hidden");
+  }
+
+  function savePlayerModal(){
+    if(!editingPlayerId) return;
+    const student = evaluation.data.students.find((stu)=>stu.id === editingPlayerId);
+    if(!student) return;
+    if(playerNoteInput) student.freeNote = playerNoteInput.value || "";
+    if(playerRoleSelect){
+      const nextRole = playerRoleSelect.value === "ref" ? "ref" : "player";
+      student.role = nextRole;
+      if(nextRole === "ref"){
+        const groupIndex = window.EPSMatrix.parseGroupIndex(student.groupTag);
+        if(groupIndex){
+          enforceSingleRefForGroup(groupIndex, student.id);
+        }
+      }
+    }
+    persist();
+    playerModal?.classList.add("hidden");
+    editingPlayerId = null;
+    renderTerrainSection();
   }
 
   function escapeHtml(value=""){
@@ -1255,234 +1364,165 @@
     });
   }
 
-  function handleTerrainCardClick(event){
-    const card = event.target.closest(".terrainCard[data-terrain]");
-    if(!card || !evaluation.data.terrainMode?.enabled) return;
-    openTerrainDetail(card.dataset.terrain);
-  }
-
-  function openTerrainDetail(terrainId){
-    if(!terrainDetail) return;
-    currentTerrainId = terrainId;
-    currentWinnerId = null;
-    currentLoserId = null;
-    if(terrainScoreInput){ terrainScoreInput.value = ""; }
-    terrainDetail.classList.remove("hidden");
-    terrainGrid?.classList.add("inset");
-    renderTerrainDetail();
-  }
-
-  function closeTerrainDetail(){
-    currentTerrainId = null;
-    currentWinnerId = null;
-    currentLoserId = null;
-    terrainDetail?.classList.add("hidden");
-    terrainGrid?.classList.remove("inset");
-    if(terrainScoreInput){ terrainScoreInput.value = ""; }
-  }
-
-  function navigateTerrain(step){
-    if(!currentTerrainId) return;
-    const terrains = evaluation.data.terrainMode?.terrains || [];
-    if(!terrains.length) return;
-    let index = terrains.findIndex((terrain)=>terrain.id === currentTerrainId);
-    if(index === -1) return;
-    let nextIndex = index + step;
-    if(nextIndex < 0) nextIndex = terrains.length - 1;
-    if(nextIndex >= terrains.length) nextIndex = 0;
-    openTerrainDetail(terrains[nextIndex].id);
-  }
-
-  function handleTerrainDetailClick(event){
-    const action = event.target.dataset.action;
-    if(!action) return;
-    const row = event.target.closest("[data-student]");
-    if(!row) return;
-    const studentId = row.dataset.student;
-    if(action === "pick-winner"){
-      currentWinnerId = currentWinnerId === studentId ? null : studentId;
-      if(currentWinnerId && currentWinnerId === currentLoserId){
-        currentLoserId = null;
-      }
-      renderTerrainDetail();
-      return;
-    }
-    if(action === "pick-loser"){
-      currentLoserId = currentLoserId === studentId ? null : studentId;
-      if(currentLoserId && currentLoserId === currentWinnerId){
-        currentWinnerId = null;
-      }
-      renderTerrainDetail();
-      return;
-    }
-    if(action === "open-terrain-note"){
-      const student = evaluation.data.students.find((stu)=>stu.id === studentId);
-      if(student){
-        openTerrainNoteModal(student);
-      }
-    }
-  }
-
-  function renderTerrainDetail(){
-    if(!terrainDetail) return;
-    if(!currentTerrainId){
-      terrainDetail.classList.add("hidden");
-      terrainGrid?.classList.remove("inset");
-      return;
-    }
+  function renderResultsTable(){
+    if(!resultsPanel || !resultsBody) return;
     const mode = evaluation.data.terrainMode;
-    const terrain = mode?.terrains?.find((t)=>t.id === currentTerrainId);
-    if(!terrain){
-      closeTerrainDetail();
+    if(!mode?.enabled){
+      resultsPanel.classList.add("hidden");
+      resultsBody.innerHTML = "";
       return;
     }
-    const scoreValue = terrainScoreInput?.value || "";
-    const players = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense && stu.terrainId === terrain.id);
-    const ref = players.find((stu)=>stu.role === "ref");
-    if(terrainDetailTitle) terrainDetailTitle.textContent = `${terrain.name} – ${players.length} joueur(s)`;
-    if(terrainDetailRef) terrainDetailRef.textContent = ref ? `Arbitre actuel : ${ref.name}` : "Pas d'arbitre sur ce terrain.";
-    if(terrainDetailPlayers){
-      if(players.length < 2){
-        terrainDetailPlayers.innerHTML = `<p class="muted">Ajoute au moins deux joueurs pour valider un match.</p>`;
+    resultsPanel.classList.remove("hidden");
+    const standings = window.EPSMatrix.computeStandingsFromMatches(mode.matches || [], evaluation.data.students);
+    const {activeRows, offRows} = buildRankingRows(standings);
+    const rows = activeRows.concat(offRows);
+    resultsBody.innerHTML = rows.map((entry)=>{
+      const rowClass = entry.rowClass ? ` class="${entry.rowClass}"` : "";
+      return `<tr data-student="${entry.id}"${rowClass}>
+        <td>${entry.rank ?? "—"}</td>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${entry.startLabel}</td>
+        <td>${entry.currentLabel}</td>
+        <td>${entry.stats.played}</td>
+        <td>${entry.stats.wins}</td>
+        <td>${entry.stats.losses}</td>
+        <td>${entry.stats.points}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function buildRankingRows(standings){
+    const active = [];
+    const off = [];
+    evaluation.data.students.forEach((stu)=>{
+      window.EPSMatrix.ensureTerrainStudentFields(stu);
+      const stats = standings.get(stu.id) || {played:0,wins:0,losses:0,points:0};
+      const currentIndex = window.EPSMatrix.parseGroupIndex(stu.groupTag) || 999;
+      const startIndex = window.EPSMatrix.parseGroupIndex(stu.startGroupTag);
+      const row = {
+        id: stu.id,
+        name: stu.name,
+        stats,
+        currentIndex,
+        startIndex,
+        currentLabel: formatGroupDisplay(currentIndex, stu),
+        startLabel: formatGroupDisplay(startIndex),
+        rowClass: stu.absent ? "isAbsent" : (stu.dispense ? "isDispense" : "")
+      };
+      if(stu.absent || stu.dispense){
+        off.push(row);
       }else{
-        terrainDetailPlayers.innerHTML = players.map((stu)=>terrainDetailRowMarkup(stu)).join("");
+        active.push(row);
       }
+    });
+    active.sort((a, b)=>{
+      if(b.stats.points !== a.stats.points) return b.stats.points - a.stats.points;
+      if(b.stats.wins !== a.stats.wins) return b.stats.wins - a.stats.wins;
+      if(a.currentIndex !== b.currentIndex) return a.currentIndex - b.currentIndex;
+      return a.name.localeCompare(b.name,"fr");
+    });
+    active.forEach((row, idx)=>{ row.rank = idx + 1; });
+    off.forEach((row)=>{ row.rank = "—"; row.currentLabel = row.rowClass === "isAbsent" ? "ABS" : "DISP"; });
+    return {activeRows: active, offRows: off};
+  }
+
+  function formatGroupDisplay(index, student){
+    if(!index || index === 999){
+      if(student?.absent) return "ABS";
+      if(student?.dispense) return "DISP";
+      return "—";
     }
-    const matches = Array.isArray(mode?.matches) ? mode.matches.filter((match)=>match.terrainId === terrain.id).slice(0,5) : [];
-    if(terrainMatchesList){
-      if(matches.length){
-        terrainMatchesList.innerHTML = matches.map((match)=>formatMatchEntry(match)).join("");
-      }else{
-        terrainMatchesList.innerHTML = '<li class="muted">Aucun match enregistré.</li>';
-      }
-    }
-    if(terrainScoreInput) terrainScoreInput.value = scoreValue;
-    const hasEnoughPlayers = players.length >= 2;
-    const ready = Boolean(currentWinnerId && currentLoserId && currentWinnerId !== currentLoserId);
-    if(btnValidateMatch){
-      btnValidateMatch.disabled = !hasEnoughPlayers || !ready;
-    }
+    return `T${index}`;
   }
 
-  function terrainDetailRowMarkup(student){
-    const winnerClass = currentWinnerId === student.id ? "active" : "";
-    const loserClass = currentLoserId === student.id ? "active" : "";
-    const noteBadge = student.freeNote ? `<span class="terrainNoteBadge" title="${escapeHtml(student.freeNote)}">📝</span>` : "";
-    return `<div class="terrainDetailRow" data-student="${student.id}">
-      <div>
-        <strong>${escapeHtml(student.name)}</strong>
-        ${noteBadge}
-      </div>
-      <div class="terrainDetailRowActions">
-        <button type="button" data-action="pick-winner" class="${winnerClass}">Gagnant</button>
-        <button type="button" data-action="pick-loser" class="${loserClass}">Perdant</button>
-        <button type="button" class="terrainNoteButton" data-action="open-terrain-note" title="Note terrain">📝</button>
-      </div>
-    </div>`;
-  }
-
-  function formatMatchEntry(match){
-    const winner = findStudentName(match.winnerId);
-    const loser = findStudentName(match.loserId);
-    const ref = findStudentName(match.refId);
-    const score = match.scoreText ? ` • ${escapeHtml(match.scoreText)}` : "";
-    const refLabel = ref ? ` – arbitre ${ref}` : "";
-    const timeLabel = match.at ? new Date(match.at).toLocaleTimeString("fr-FR",{hour:"2-digit", minute:"2-digit"}) : "";
-    return `<li><strong>${winner}</strong> bat ${loser}${score}${refLabel}<span class="muted"> (${timeLabel})</span></li>`;
-  }
-
-  function findStudentName(id){
-    if(!id) return "—";
-    const student = evaluation.data.students.find((stu)=>stu.id === id);
-    return student ? escapeHtml(student.name) : "—";
-  }
-
-  function validateTerrainMatch(){
-    if(!currentTerrainId) return;
-    if(!currentWinnerId || !currentLoserId || currentWinnerId === currentLoserId){
-      alert("Sélectionne un gagnant et un perdant différents.");
+  function exportResultsCsv(){
+    if(!evaluation.data.terrainMode?.enabled){
+      alert("Active le mode terrain pour exporter les résultats.");
       return;
     }
-    const mode = evaluation.data.terrainMode;
-    const terrain = mode?.terrains?.find((t)=>t.id === currentTerrainId);
-    if(!terrain){
-      alert("Terrain introuvable.");
-      return;
-    }
-    const winner = evaluation.data.students.find((stu)=>stu.id === currentWinnerId);
-    const loser = evaluation.data.students.find((stu)=>stu.id === currentLoserId);
-    if(!winner || !loser){
+    const standings = window.EPSMatrix.computeStandingsFromMatches(evaluation.data.terrainMode.matches || [], evaluation.data.students);
+    const ranking = buildRankingRows(standings);
+    const rows = ranking.activeRows.concat(ranking.offRows);
+    const header = ["student_id","name","startTerrain","currentTerrain","played","wins","losses","points","rank"];
+    const csvRows = rows.map((row)=>[
+      row.id,
+      row.name,
+      row.startLabel,
+      row.currentLabel,
+      row.stats.played,
+      row.stats.wins,
+      row.stats.losses,
+      row.stats.points,
+      row.rank ?? ""
+    ]);
+    const csv = [header, ...csvRows].map((line)=>line.map((cell)=>`"${String(cell ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const filename = `EPSMatrix_resultats_${window.EPSMatrix.sanitizeFileName(evaluation.activity)}_${new Date().toISOString().slice(0,10)}.csv`;
+    downloadFile(filename, csv, "text/csv");
+  }
+
+  function computeStudentRank(studentId){
+    const standings = window.EPSMatrix.computeStandingsFromMatches(evaluation.data.terrainMode.matches || [], evaluation.data.students);
+    const ranking = buildRankingRows(standings).activeRows;
+    const foundIndex = ranking.findIndex((row)=>row.id === studentId);
+    return foundIndex === -1 ? "" : (foundIndex + 1);
+  }
+
+  function openStudentSummary(studentId){
+    if(!studentSummaryModal) return;
+    const student = evaluation.data.students.find((stu)=>stu.id === studentId);
+    if(!student){
       alert("Élève introuvable.");
       return;
     }
-    const ref = evaluation.data.students.find((stu)=>stu.terrainId === terrain.id && stu.role === "ref");
-    applyMatchRotation(terrain, winner, loser, ref, terrainScoreInput?.value || "");
-    currentWinnerId = null;
-    currentLoserId = null;
-    if(terrainScoreInput){ terrainScoreInput.value = ""; }
-    render();
-    renderTerrainDetail();
+    viewingStudentId = student.id;
+    const standings = window.EPSMatrix.computeStandingsFromMatches(evaluation.data.terrainMode.matches || [], evaluation.data.students);
+    const stats = standings.get(student.id) || {played:0,wins:0,losses:0,points:0};
+    const startLabel = formatGroupDisplay(window.EPSMatrix.parseGroupIndex(student.startGroupTag));
+    const currentLabel = formatGroupDisplay(window.EPSMatrix.parseGroupIndex(student.groupTag), student);
+    if(studentSummaryTitle) studentSummaryTitle.textContent = student.name;
+    if(studentSummaryMeta) studentSummaryMeta.textContent = `Départ ${startLabel} • Terrain actuel ${currentLabel}`;
+    if(studentSummaryStats){
+      studentSummaryStats.innerHTML = `
+        <div><span>Matchs</span><strong>${stats.played}</strong></div>
+        <div><span>Gagnés</span><strong>${stats.wins}</strong></div>
+        <div><span>Perdus</span><strong>${stats.losses}</strong></div>
+        <div><span>Points</span><strong>${stats.points}</strong></div>
+      `;
+    }
+    if(studentMatchesList){
+      const list = buildStudentMatchHistory(student.id);
+      studentMatchesList.innerHTML = list.length ? list.join("") : '<li class="muted">Aucun match enregistré.</li>';
+    }
+    studentSummaryModal.classList.remove("hidden");
   }
 
-  function applyMatchRotation(terrain, winner, loser, ref, scoreText){
-    const mode = evaluation.data.terrainMode;
-    const terrains = mode?.terrains || [];
-    window.EPSMatrix.ensureTerrainStudentFields(winner);
-    window.EPSMatrix.ensureTerrainStudentFields(loser);
-    if(ref){
-      window.EPSMatrix.ensureTerrainStudentFields(ref);
-    }
-    bumpStats(winner, "win");
-    bumpStats(loser, "loss");
-    const winnerIndex = terrain.index;
-    const total = terrains.length;
-    const winnerTargetIndex = winnerIndex > 1 ? winnerIndex - 1 : 1;
-    const loserTargetIndex = winnerIndex < total ? winnerIndex + 1 : total;
-    const winnerTarget = terrains[winnerTargetIndex - 1];
-    const loserTarget = terrains[loserTargetIndex - 1];
-    if(winnerTarget){
-      winner.terrainId = winnerTarget.id;
-    }
-    if(loserTarget){
-      loser.terrainId = loserTarget.id;
-    }
-    winner.role = "ref";
-    loser.role = "player";
-    if(ref){
-      ref.role = "player";
-      ref.terrainId = terrain.id;
-    }
-    evaluation.data.students.forEach((stu)=>{
-      if(stu.id !== winner.id && stu.terrainId === winner.terrainId && stu.role === "ref"){
-        stu.role = "player";
+  function buildStudentMatchHistory(studentId){
+    const matches = evaluation.data.terrainMode.matches || [];
+    return matches.filter((match)=>match.winnerId === studentId || match.loserId === studentId).map((match)=>{
+      const isWinner = match.winnerId === studentId;
+      const opponentId = isWinner ? match.loserId : match.winnerId;
+      const opponentName = findStudentName(opponentId);
+      const label = isWinner ? "Victoire" : "Défaite";
+      const resultClass = isWinner ? "resultTag win" : "resultTag loss";
+      const scoreText = match.scoreText ? ` • Score ${escapeHtml(match.scoreText)}` : "";
+      const refText = match.refId ? ` • Arbitre ${findStudentName(match.refId)}` : "";
+      let abandonText = "";
+      if(match.forfeitId){
+        abandonText = match.forfeitId === studentId ? " • Abandon" : " • Abandon adverse";
       }
+      const timeLabel = match.at ? new Date(match.at).toLocaleString("fr-FR",{day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"}) : "";
+      return `<li>
+        <strong>${timeLabel}</strong> – ${formatGroupLabel(match.groupIndex || 1)} • vs ${opponentName}
+        <span class="${resultClass}">${label}</span>${scoreText}${refText}${abandonText}
+      </li>`;
     });
-    mode.matches = Array.isArray(mode.matches) ? mode.matches : [];
-    mode.matches.unshift({
-      at: new Date().toISOString(),
-      terrainId: terrain.id,
-      winnerId: winner.id,
-      loserId: loser.id,
-      refId: ref?.id || null,
-      scoreText: scoreText ? scoreText.trim() : ""
-    });
-    if(mode.matches.length > 200){
-      mode.matches = mode.matches.slice(0,200);
-    }
-    enforceSingleRefPerTerrain(mode);
-    persist();
   }
 
-  function bumpStats(student, result){
-    if(!student) return;
-    window.EPSMatrix.ensureTerrainStudentFields(student);
-    student.stats.played += 1;
-    if(result === "win"){
-      student.stats.wins += 1;
-      student.stats.points += 3;
-    }else if(result === "loss"){
-      student.stats.losses += 1;
-      student.stats.points += 1;
-    }
+  function handleResultsClick(event){
+    const row = event.target.closest("tr[data-student]");
+    if(!row || !evaluation.data.terrainMode?.enabled) return;
+    const studentId = row.dataset.student;
+    if(!studentId) return;
+    openStudentSummary(studentId);
   }
 })();

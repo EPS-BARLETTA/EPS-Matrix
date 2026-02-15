@@ -49,38 +49,20 @@
             <input type="checkbox" id="toggleTerrainMode" />
             Mode terrain
           </label>
-          <p class="muted smallText">Organise rapidement tes terrains et arbitres.</p>
+          <p class="muted smallText">Les terrains utilisent les groupes (G1 = Terrain 1).</p>
         </div>
         <div class="terrainConfig">
-          <label>Terrains
-            <input type="number" id="terrainCountInput" min="1" max="8" value="4" />
+          <label>Nombre de terrains
+            <input type="number" id="terrainCountInput" min="1" max="20" value="4" />
           </label>
-          <button class="btn secondary" type="button" id="btnInitTerrains">Initialiser les terrains</button>
+          <button class="btn secondary" type="button" id="btnInitTerrains">Initialiser le classement</button>
         </div>
       </div>
-      <p class="muted" id="terrainDisabledHint">Active le mode terrain pour afficher les cartes.</p>
+      <p class="muted smallText" id="terrainDisabledHint">Active le mode terrain pour générer automatiquement les cartes à partir des groupes.</p>
       <div class="terrainGrid" id="terrainGrid"></div>
-      <div class="terrainDetail hidden" id="terrainDetail">
-        <div class="terrainDetailHeader">
-          <button class="btn secondary" type="button" id="btnTerrainBack">← Vue globale</button>
-          <div class="terrainDetailNav">
-            <button class="btn secondary" type="button" id="btnTerrainPrev">Terrain précédent</button>
-            <button class="btn secondary" type="button" id="btnTerrainNext">Terrain suivant</button>
-          </div>
-        </div>
-        <h3 id="terrainDetailTitle">Terrain</h3>
-        <p id="terrainDetailRef" class="muted"></p>
-        <div id="terrainDetailPlayers" class="terrainDetailPlayers"></div>
-        <label class="terrainScoreField">Score / note
-          <input type="text" id="terrainScoreInput" placeholder="ex : 11-9" />
-        </label>
-        <div class="terrainDetailActions">
-          <button class="btn primary" type="button" id="btnValidateMatch">Valider le match</button>
-        </div>
-        <div class="terrainMatches">
-          <h4>Matches récents</h4>
-          <ul id="terrainMatchesList"></ul>
-        </div>
+      <div class="terrainMatches">
+        <h4>Matches récents</h4>
+        <ul id="terrainMatchesList"></ul>
       </div>
     </section>
     <div class="tableWrapper">
@@ -170,18 +152,94 @@
     </div>
   </div>
 
-  <div class="modal hidden" id="terrainNoteModal" role="dialog" aria-modal="true">
-    <div class="modalCard">
+  <div class="modal hidden" id="matchModal" role="dialog" aria-modal="true">
+    <div class="modalCard large">
       <div class="modalHeader">
-        <h2>Note terrain</h2>
+        <h2 id="matchModalTitle">Match – Terrain</h2>
         <button class="iconButton" data-close-modal>&times;</button>
       </div>
-      <p class="muted">Saisis une note libre visible dans le mode terrain.</p>
-      <textarea id="terrainNoteInput" style="width:100%;min-height:160px;border-radius:16px;border:1px solid var(--line);padding:12px;font-family:inherit;"></textarea>
+      <div class="matchForm">
+        <label>Gagnant
+          <select id="matchWinnerSelect"></select>
+        </label>
+        <label>Perdant
+          <select id="matchLoserSelect"></select>
+        </label>
+        <label>Score / note
+          <input type="text" id="matchScoreInput" placeholder="21-18, 2-0..." />
+        </label>
+        <label>Arbitre
+          <select id="matchRefSelect"></select>
+        </label>
+        <label class="switchRow">
+          <input type="checkbox" id="matchForfeitToggle" />
+          <span>Abandon (sélectionne ensuite qui abandonne)</span>
+        </label>
+        <label>Joueur qui abandonne
+          <select id="matchForfeitSelect"></select>
+        </label>
+      </div>
+      <details class="correctionPanel">
+        <summary>Correction manuelle</summary>
+        <div class="correctionGrid">
+          <label>Déplacer un élève
+            <select id="correctionStudentSelect"></select>
+          </label>
+          <label>Vers Terrain #
+            <select id="correctionTargetGroup"></select>
+          </label>
+          <button class="btn secondary" type="button" id="btnApplyMove">Appliquer le déplacement</button>
+        </div>
+        <div class="correctionGrid">
+          <label>Définir l’arbitre du terrain
+            <select id="correctionRefSelect"></select>
+          </label>
+          <button class="btn secondary" type="button" id="btnApplyRef">Mettre à jour l’arbitre</button>
+        </div>
+      </details>
       <div class="actions modalActions">
         <span class="flex-fill"></span>
         <button class="btn secondary" type="button" data-close-modal>Annuler</button>
-        <button class="btn primary" type="button" id="btnSaveTerrainNote">Enregistrer</button>
+        <button class="btn primary" type="button" id="btnValidateMatch">Valider le match</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="playerModal" role="dialog" aria-modal="true">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2 id="playerModalTitle">Fiche terrain</h2>
+        <button class="iconButton" data-close-modal>&times;</button>
+      </div>
+      <p class="muted" id="playerModalMeta"></p>
+      <label>Note libre
+        <textarea id="playerNoteInput" style="width:100%;min-height:140px;border-radius:16px;border:1px solid var(--line);padding:12px;font-family:inherit;"></textarea>
+      </label>
+      <label>Rôle
+        <select id="playerRoleSelect">
+          <option value="player">Joueur / Joueuse</option>
+          <option value="ref">Arbitre</option>
+        </select>
+      </label>
+      <div class="actions modalActions">
+        <span class="flex-fill"></span>
+        <button class="btn secondary" type="button" data-close-modal>Fermer</button>
+        <button class="btn primary" type="button" id="btnSavePlayer">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="studentSummaryModal" role="dialog" aria-modal="true">
+    <div class="modalCard large">
+      <div class="modalHeader">
+        <h2 id="studentSummaryTitle">Bilan élève</h2>
+        <button class="iconButton" data-close-modal>&times;</button>
+      </div>
+      <p class="muted" id="studentSummaryMeta"></p>
+      <div class="studentSummaryStats" id="studentSummaryStats"></div>
+      <div class="studentMatches">
+        <h4>Matches</h4>
+        <ul id="studentMatchesList"></ul>
       </div>
     </div>
   </div>

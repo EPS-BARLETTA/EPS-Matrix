@@ -3,7 +3,7 @@ if(typeof structuredClone !== "function"){ window.structuredClone = (obj)=>JSON.
 const DEFAULT_CLASS_COLOR = "#1c5bff";
 const LISTE_DEFAULT = ["Niels","Valentina","Camille","Lea","Cecilia","Koray","Myla","Julie","Olivia","Gaia","Daria","Gabrielle","Evan","Anika","Marc","Emma","Auguste","Ysé","Victoria","Kenji","Tao","Edgar","Rafael","Bruno","Constance","Charlotte"];
 const ARCHIVE_VERSION = 1;
-const MAX_TERRAINS = 8;
+const MAX_TERRAINS = 20;
 const DEFAULT_TERRAIN_COUNT = 4;
 const LEGACY_SCHEMA_VERSION = 1;
 const STUDENT_ID_SCHEMA_VERSION = 2;
@@ -485,6 +485,10 @@ window.EPSMatrix = {
   createDefaultTerrainMode,
   ensureTerrainStudentFields,
   normalizeTerrainMode,
+  parseGroupIndex,
+  formatGroupTag,
+  normalizeGroupTag,
+  computeStandingsFromMatches,
   ARCHIVE_VERSION,
   CURRENT_SCHEMA_VERSION
 };
@@ -548,6 +552,7 @@ function createDefaultTerrainMode(){
     enabled:false,
     terrainCount:DEFAULT_TERRAIN_COUNT,
     terrains:[],
+    linkedToGroups:true,
     matches:[]
   };
 }
@@ -558,7 +563,22 @@ function createDefaultTerrainStats(){
 
 function ensureTerrainStudentFields(student){
   if(!student || typeof student !== "object") return;
-  if(typeof student.terrainId !== "string"){ student.terrainId = ""; }
+  if(typeof student.groupTag !== "string"){
+    student.groupTag = "";
+  }else{
+    const normalized = normalizeGroupTag(student.groupTag);
+    if(normalized) student.groupTag = normalized;
+  }
+  if(typeof student.terrainId === "string" && !student.groupTag){
+    const legacyGroup = normalizeGroupTag(student.terrainId);
+    if(legacyGroup) student.groupTag = legacyGroup;
+  }
+  if(typeof student.startGroupTag !== "string" || !student.startGroupTag){
+    student.startGroupTag = normalizeGroupTag(student.startGroupTag || student.groupTag || student.terrainId || "");
+  }
+  if(typeof student.startGroupTag !== "string"){
+    student.startGroupTag = "";
+  }
   if(student.role !== "ref"){ student.role = "player"; }
   if(typeof student.freeNote !== "string"){ student.freeNote = ""; }
   if(!student.stats || typeof student.stats !== "object"){
@@ -569,46 +589,90 @@ function ensureTerrainStudentFields(student){
     student.stats.losses = Number(student.stats.losses) || 0;
     student.stats.points = Number(student.stats.points) || 0;
   }
-  if(typeof student.startTerrainId !== "string"){
-    student.startTerrainId = student.terrainId || "";
-  }
 }
 
 function normalizeTerrainMode(rawMode, students){
   const base = createDefaultTerrainMode();
   const mode = Object.assign({}, base, rawMode || {});
   mode.terrainCount = clampTerrainCount(mode.terrainCount || base.terrainCount);
-  const terrains = [];
-  const existing = Array.isArray(mode.terrains) ? mode.terrains : [];
-  for(let index=1; index<=mode.terrainCount; index++){
-    const fallbackId = `t${index}`;
-    const match = existing.find((terrain)=>terrain && (terrain.index === index || terrain.id === fallbackId));
-    terrains.push({
-      id: match?.id || fallbackId,
-      name: match?.name || `Terrain ${index}`,
-      index
-    });
+  mode.linkedToGroups = true;
+  mode.matches = normalizeTerrainMatches(mode.matches);
+  if(Array.isArray(students)){
+    students.forEach(ensureTerrainStudentFields);
   }
-  mode.terrains = terrains;
-  mode.matches = Array.isArray(mode.matches) ? mode.matches.map((entry)=>{
-    const terrainId = typeof entry?.terrainId === "string" ? entry.terrainId : terrains[0]?.id;
+  return mode;
+}
+
+function normalizeTerrainMatches(rawMatches){
+  if(!Array.isArray(rawMatches)) return [];
+  return rawMatches.map((entry)=>{
+    const groupIndex = clampGroupIndex(
+      typeof entry?.groupIndex === "number" ? entry.groupIndex :
+        parseGroupIndex(entry?.groupTag) ??
+        parseGroupIndex(entry?.terrainId)
+    );
     return {
       at: entry?.at || new Date().toISOString(),
-      terrainId,
+      groupIndex: groupIndex || 1,
       winnerId: entry?.winnerId || null,
       loserId: entry?.loserId || null,
       refId: typeof entry?.refId === "string" ? entry.refId : null,
-      scoreText: typeof entry?.scoreText === "string" ? entry.scoreText : ""
+      scoreText: typeof entry?.scoreText === "string" ? entry.scoreText : "",
+      forfeitId: typeof entry?.forfeitId === "string" ? entry.forfeitId : null
     };
-  }).filter((entry)=>entry.winnerId && entry.loserId) : [];
-  const validTerrainIds = new Set(terrains.map((terrain)=>terrain.id));
-  if(Array.isArray(students)){
-    students.forEach((stu)=>{
-      ensureTerrainStudentFields(stu);
-      if(stu.terrainId && !validTerrainIds.has(stu.terrainId)){
-        stu.terrainId = "";
-      }
-    });
-  }
-  return mode;
+  }).filter((match)=>match.winnerId && match.loserId);
+}
+
+function clampGroupIndex(index){
+  const parsed = Number(index);
+  if(!Number.isFinite(parsed) || parsed < 1) return 1;
+  if(parsed > MAX_TERRAINS) return MAX_TERRAINS;
+  return Math.floor(parsed);
+}
+
+function parseGroupIndex(tag){
+  if(typeof tag === "number") return clampGroupIndex(tag);
+  const str = String(tag || "").trim();
+  if(!str) return null;
+  const match = str.match(/(\d{1,2})/);
+  if(!match) return null;
+  return clampGroupIndex(parseInt(match[1], 10));
+}
+
+function formatGroupTag(index){
+  const parsed = parseGroupIndex(index);
+  return parsed ? String(parsed) : "";
+}
+
+function normalizeGroupTag(tag){
+  const parsed = parseGroupIndex(tag);
+  return parsed ? String(parsed) : "";
+}
+
+function computeStandingsFromMatches(matches, students){
+  const map = new Map();
+  const studentIds = new Set((students||[]).map((stu)=>stu.id));
+  (matches||[]).forEach((match)=>{
+    if(!match?.winnerId || !match?.loserId) return;
+    if(!map.has(match.winnerId)){
+      map.set(match.winnerId, {played:0,wins:0,losses:0,points:0});
+    }
+    if(!map.has(match.loserId)){
+      map.set(match.loserId, {played:0,wins:0,losses:0,points:0});
+    }
+    const winnerStats = map.get(match.winnerId);
+    const loserStats = map.get(match.loserId);
+    winnerStats.played += 1;
+    winnerStats.wins += 1;
+    winnerStats.points += 3;
+    loserStats.played += 1;
+    loserStats.losses += 1;
+    loserStats.points += 1;
+  });
+  studentIds.forEach((id)=>{
+    if(!map.has(id)){
+      map.set(id, {played:0,wins:0,losses:0,points:0});
+    }
+  });
+  return map;
 }

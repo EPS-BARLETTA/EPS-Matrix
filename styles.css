@@ -193,6 +193,7 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainChip.ref{background:#dbeafe;color:#1d4ed8;}
 .terrainChip.empty{background:#f1f5f9;color:#94a3b8;font-weight:500;}
 .terrainChip .terrainNoteBadge{margin-left:6px;font-size:0.85rem;}
+.badge.ref{background:#dbeafe;color:#1d4ed8;}
 .terrainList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
 .terrainList .badge{margin-left:6px;padding:2px 8px;border-radius:999px;font-size:0.7rem;background:#e0e7ff;color:#312e81;}
 .terrainList .badge.warning{background:#fef3c7;color:#92400e;}
@@ -203,6 +204,20 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainCell select:disabled{opacity:.6;}
 .terrainNoteButton{border:none;background:rgba(15,23,42,.08);border-radius:10px;padding:4px 8px;margin-left:8px;cursor:pointer;}
 .terrainNoteButton:hover{background:rgba(15,23,42,.15);}
+.terrainStudentList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.terrainStudent{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#f8faff;}
+.terrainStudentMeta{display:block;font-size:0.8rem;color:var(--muted);}
+.terrainStudentBadges .badge{margin-left:6px;padding:2px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:0.75rem;}
+.matchForm{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:12px 0;}
+.matchForm label{display:flex;flex-direction:column;font-weight:600;color:var(--muted);gap:6px;}
+.matchForm input,
+.matchForm select{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-family:inherit;}
+.switchRow{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted);}
+.correctionPanel{margin-top:12px;border:1px solid var(--line);border-radius:16px;padding:12px;background:#f5f7ff;}
+.correctionPanel summary{font-weight:600;cursor:pointer;margin-bottom:8px;}
+.correctionGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px;}
+.correctionGrid label{display:flex;flex-direction:column;font-weight:600;color:var(--muted);gap:6px;}
+.correctionGrid select{border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-family:inherit;}
 .terrainDetail{margin-top:16px;border:1px solid var(--line);border-radius:20px;padding:18px;background:#fff;display:flex;flex-direction:column;gap:12px;}
 .terrainDetailHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .terrainDetailNav{display:flex;gap:8px;flex-wrap:wrap;}
@@ -217,6 +232,16 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainMatches h4{margin:0;}
 .resultsPanel{border:1px solid var(--line);border-radius:24px;padding:20px;background:#fff;text-align:left;}
 .resultsPanel .sectionHeader{margin-bottom:12px;}
+.resultsPanel tbody tr{cursor:pointer;}
+.studentSummaryStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:12px 0;}
+.studentSummaryStats div{border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;background:#f5f7ff;}
+.studentSummaryStats span{display:block;font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.studentSummaryStats strong{font-size:1.4rem;color:var(--navy);}
+.studentMatches ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;}
+.studentMatches li{border-bottom:1px solid var(--line);padding:8px 0;font-size:0.95rem;}
+.resultTag{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:0.75rem;font-weight:600;margin-left:8px;}
+.resultTag.win{background:#d1fae5;color:#065f46;}
+.resultTag.loss{background:#fee2e2;color:#991b1b;}
 .modal{position:fixed;inset:0;background:var(--modal-scrim);display:flex;align-items:center;justify-content:center;padding:20px;z-index:99;}
 .modalCard{background:var(--panel);border-radius:28px;padding:28px;width:min(820px,100%);max-height:90vh;overflow:auto;box-shadow:0 35px 120px rgba(10,20,40,.45);color:var(--navy);}
 .modalCard.large{width:min(960px,100%);}
