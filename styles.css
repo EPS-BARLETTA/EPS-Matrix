@@ -39,8 +39,8 @@
   --blue:var(--accent);
   --muted:var(--text-muted);
   font-family:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-}
-:root[data-theme="dark"]{
+:root[data-theme="dark"],
+body[data-theme="dark"]{
   --bg:#121212;
   --surface:#1e1e1e;
   --surface-2:#2a2a2a;
@@ -205,11 +205,12 @@ header.app h2{margin:0;font-size:2rem;}
 table{width:100%;border-collapse:separate;border-spacing:0;}
 thead th{position:sticky;top:0;background:var(--surface-2);border-bottom:2px solid var(--line);padding:8px;font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
 tbody td{padding:8px;border-bottom:1px solid var(--line);} 
-table input,table textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:0.9rem;font-family:inherit;background:var(--input-bg);color:var(--input-text);}
+table input,table textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:4px 6px;font-size:0.9rem;font-family:inherit;background:var(--surface);color:var(--text);}
 table textarea{min-height:40px;resize:vertical;}
+input,select,textarea{background:var(--surface);color:var(--text);border:1px solid var(--border);}
 input::placeholder,
-textarea::placeholder{color:var(--placeholder);opacity:1;}
-select{background:var(--input-bg);color:var(--input-text);border:1px solid var(--line);}
+textarea::placeholder{color:var(--text-muted);opacity:1;}
+option{color:var(--text);background:var(--surface);}
 .nameCell{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:190px;}
 .studentName{font-weight:600;}
 .presenceBadges{display:flex;gap:6px;}
@@ -249,8 +250,8 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainConfig input{width:90px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-family:inherit;}
 .terrainGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
 .terrainGrid.inset{opacity:.35;pointer-events:none;}
+.modeHintText{margin-top:10px;color:var(--text-muted);font-size:0.95rem;}
 .terrainContent.hidden{display:none;}
-.modePlaceholderCard{border:1px solid var(--line);border-radius:16px;padding:12px 16px;text-align:left;display:inline-flex;flex-direction:row;align-items:center;gap:10px;background:var(--surface-2);color:var(--text-muted);margin-top:12px;max-width:280px;}
 .placeholderIcon{font-size:1.4rem;}
 .terrainMatches{margin-top:24px;border:1px solid var(--line);border-radius:24px;padding:20px;background:var(--surface);color:var(--text);}
 .terrainCard{border:1px solid var(--line);border-radius:18px;padding:16px;background:var(--surface);display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(15,23,42,.08);color:var(--text);}
