@@ -79,6 +79,7 @@
   let editingPlayerId = null;
   let viewingStudentId = null;
   let rotationPersistTimer = null;
+  const matchScoreDrafts = new Map();
 
   const evalTitleEl = document.getElementById("evalTitle");
   const evalMetaEl = document.getElementById("evalMeta");
@@ -404,58 +405,67 @@
 
   function handleRotationScoreInput(event){
     const input = event.target;
-    if(!input || input.tagName !== "INPUT" || input.type !== "number") return;
-    const field = input.dataset.field;
-    if(field !== "scoreA" && field !== "scoreB") return;
+    if(!isScoreInputElement(input)) return;
     const card = input.closest("[data-match]");
     if(!card) return;
-    const matchId = card.dataset.match;
     const round = getCurrentRoundData();
     if(!round) return;
-    const match = round.matches.find((m)=>m.id === matchId);
+    const match = round.matches.find((m)=>m.id === card.dataset.match);
     if(!match) return;
-    if(match.status === "done"){
-      input.value = match[field] ?? "";
+    if(isMatchLocked(match) || match.forfeitEnabled || match.status === "done"){
+      input.value = getDraftValue(match, input.dataset.field);
       return;
     }
-    if(match.forfeitEnabled){
-      input.value = "";
-      return;
+    const sanitized = sanitizeScoreInput(input.value);
+    if(sanitized !== input.value){
+      input.value = sanitized;
     }
-    const rawValue = input.value.trim();
-    let value = rawValue === "" ? null : Number(rawValue);
-    if(value !== null){
-      if(!Number.isFinite(value) || value < 0){
-        alert("Score invalide.");
-        input.value = "";
-        value = null;
-      }else{
-        value = Math.floor(value);
-      }
+    input.dataset.dirty = "true";
+    const draft = ensureMatchDraft(match);
+    if(draft){
+      draft[input.dataset.field] = sanitized;
     }
-    match[field] = value;
-    evaluateMatchScore(match, input);
-    scheduleRotationPersist();
-    updateRotationMatchCard(card, match);
-    refreshRotationButtons();
+  }
+
+  function handleRotationScoreBlur(event){
+    const input = event.target;
+    if(!isScoreInputElement(input)) return;
+    if(input.dataset.dirty === "true"){
+      commitMatchScoresFromInput(input);
+    }
+  }
+
+  function handleRotationScoreKeydown(event){
+    if(event.key !== "Enter") return;
+    const input = event.target;
+    if(!isScoreInputElement(input)) return;
+    event.preventDefault();
+    commitMatchScoresFromInput(input);
   }
 
   function handleRotationMatchClick(event){
     const target = event.target.closest("[data-action]");
     if(!target) return;
-    if(target.dataset.action !== "reset-match") return;
+    const action = target.dataset.action;
     const matchId = target.dataset.match;
-    const round = getCurrentRoundData();
-    if(!round) return;
-    const match = round.matches.find((m)=>m.id === matchId);
-    if(!match) return;
-    if(isMatchLocked(match)){
-      alert("Ce match est verrouillé car la rotation est déjà validée.");
+    if(action === "validate-match"){
+      commitMatchScoresById(matchId);
       return;
     }
-    resetMatchScore(match, true);
-    persist();
-    renderRotationPanel();
+    if(action === "reset-match"){
+      const round = getCurrentRoundData();
+      if(!round) return;
+      const match = round.matches.find((m)=>m.id === matchId);
+      if(!match) return;
+      if(isMatchLocked(match)){
+        alert("Ce match est verrouillé car la rotation est déjà validée.");
+        return;
+      }
+      resetMatchScore(match, true);
+      syncDraftFromMatch(match);
+      persist();
+      renderRotationPanel();
+    }
   }
 
   function handleRotationControlChange(event){
@@ -655,34 +665,54 @@
     });
   }
 
-  function evaluateMatchScore(match, input){
-    if(match.scoreA === null || match.scoreB === null){
-      resetMatchScore(match);
-      return;
+  function commitMatchScores(match){
+    if(!match) return false;
+    if(isMatchLocked(match)){
+      alert("Ce match est verrouillé car la rotation est déjà validée.");
+      syncDraftFromMatch(match);
+      return false;
     }
-    match.forfeitEnabled = false;
+    if(match.forfeitEnabled){
+      syncDraftFromMatch(match);
+      return false;
+    }
+    const draft = ensureMatchDraft(match);
+    const parsedA = parseScoreValue(draft?.scoreA);
+    const parsedB = parseScoreValue(draft?.scoreB);
+    const prevStatus = match.status;
+    match.scoreA = parsedA;
+    match.scoreB = parsedB;
     match.forfeitId = null;
-    if(match.scoreA === match.scoreB){
+    match.forfeitEnabled = false;
+    match.status = "pending";
+    match.winnerId = null;
+    match.loserId = null;
+    match.scoreText = "";
+    if(parsedA === null && parsedB === null){
+      syncDraftFromMatch(match);
+      return prevStatus !== match.status;
+    }
+    if(parsedA === null || parsedB === null){
+      syncDraftFromMatch(match);
+      return prevStatus !== match.status;
+    }
+    if(parsedA === parsedB){
       alert("Égalité impossible, saisis des scores différents.");
-      if(input){
-        input.value = "";
-      }
-      const field = input?.dataset.field;
-      if(field === "scoreA" || field === "scoreB"){
-        match[field] = null;
-      }
-      resetMatchScore(match);
-      return;
+      syncDraftFromMatch(match);
+      return false;
     }
     match.status = "done";
-    const winnerIsA = match.scoreA > match.scoreB;
+    const winnerIsA = parsedA > parsedB;
     match.winnerId = winnerIsA ? match.aId : match.bId;
     match.loserId = winnerIsA ? match.bId : match.aId;
-    match.scoreText = `${match.scoreA}-${match.scoreB}`;
+    match.scoreText = `${parsedA}-${parsedB}`;
+    syncDraftFromMatch(match);
+    return prevStatus !== match.status || match.scoreText.length > 0;
   }
 
   function resetMatchScore(match, clearScores=false, options={}){
     const keepForfeitState = options.keepForfeitState === true;
+    const syncDraft = options.syncDraft !== false;
     if(clearScores){
       match.scoreA = null;
       match.scoreB = null;
@@ -697,6 +727,98 @@
       match.forfeitId = null;
       match.forfeitEnabled = false;
     }
+    if(syncDraft){
+      syncDraftFromMatch(match);
+    }
+  }
+
+  function parseScoreValue(raw){
+    if(raw === null || typeof raw === "undefined") return null;
+    const text = String(raw).trim();
+    if(!text) return null;
+    if(!/^\d+$/.test(text)) return null;
+    return Number.parseInt(text, 10);
+  }
+
+  function sanitizeScoreInput(value=""){
+    return String(value ?? "").replace(/\D+/g, "");
+  }
+
+  function ensureMatchDraft(match){
+    if(!match?.id) return null;
+    if(!matchScoreDrafts.has(match.id)){
+      syncDraftFromMatch(match);
+    }
+    return matchScoreDrafts.get(match.id);
+  }
+
+  function syncDraftFromMatch(match){
+    if(!match?.id) return;
+    matchScoreDrafts.set(match.id, {
+      scoreA: formatDraftValue(match.scoreA),
+      scoreB: formatDraftValue(match.scoreB)
+    });
+  }
+
+  function syncRotationDrafts(round){
+    if(!round?.matches){
+      matchScoreDrafts.clear();
+      return;
+    }
+    const ids = new Set();
+    round.matches.forEach((match)=>{
+      if(!match?.id) return;
+      ids.add(match.id);
+      if(match.status === "done" || match.forfeitEnabled || !matchScoreDrafts.has(match.id)){
+        syncDraftFromMatch(match);
+      }
+    });
+    Array.from(matchScoreDrafts.keys()).forEach((id)=>{
+      if(!ids.has(id)){
+        matchScoreDrafts.delete(id);
+      }
+    });
+  }
+
+  function formatDraftValue(value){
+    return value === null || typeof value === "undefined" ? "" : String(value);
+  }
+
+  function getDraftValue(match, field){
+    const draft = ensureMatchDraft(match);
+    return draft ? draft[field] ?? "" : "";
+  }
+
+  function isScoreInputElement(input){
+    if(!input || input.tagName !== "INPUT") return false;
+    const field = input.dataset.field;
+    return field === "scoreA" || field === "scoreB";
+  }
+
+  function commitMatchScoresFromInput(input){
+    if(!input) return;
+    const card = input.closest("[data-match]");
+    if(!card) return;
+    commitMatchScoresById(card.dataset.match);
+    if(input.dataset){
+      delete input.dataset.dirty;
+    }
+  }
+
+  function commitMatchScoresById(matchId){
+    if(!matchId) return;
+    const round = getCurrentRoundData();
+    if(!round) return;
+    const match = round.matches.find((m)=>m.id === matchId);
+    if(!match) return;
+    const changed = commitMatchScores(match);
+    const card = rotationMatchesEl?.querySelector(`[data-match="${matchId}"]`);
+    if(card){
+      updateRotationMatchCard(card, match);
+    }
+    scheduleRotationPersist();
+    refreshRotationButtons();
+    return changed;
   }
 
 
@@ -741,7 +863,8 @@
   btnExportResultsCsv?.addEventListener("click", exportResultsCsv);
   resultsBody?.addEventListener("click", handleResultsClick);
   rotationMatchesEl?.addEventListener("input", handleRotationScoreInput);
-  rotationMatchesEl?.addEventListener("change", handleRotationScoreChange);
+  rotationMatchesEl?.addEventListener("blur", handleRotationScoreBlur, true);
+  rotationMatchesEl?.addEventListener("keydown", handleRotationScoreKeydown);
   rotationMatchesEl?.addEventListener("click", handleRotationMatchClick);
   rotationMatchesEl?.addEventListener("change", handleRotationControlChange);
 
@@ -1587,11 +1710,13 @@ function assignGroupsRoundRobin(count){
     }
     const round = mode.rounds?.find((entry)=>entry.round === currentRound);
     if(!round || !round.matches?.length){
+      matchScoreDrafts.clear();
       rotationMatchesEl.innerHTML = '<div class="rotationMatchEmpty">Aucun match pour cette rotation. Clique sur “Initialiser le classement” pour préparer les affiches.</div>';
       btnNextRotation?.setAttribute("disabled","disabled");
       updateUndoButton();
       return;
     }
+    syncRotationDrafts(round);
     const cards = round.matches.map((match)=>rotationMatchCard(match)).join("");
     rotationMatchesEl.innerHTML = cards;
     updateRotationCta(round);
@@ -1648,6 +1773,9 @@ function assignGroupsRoundRobin(count){
     const nameA = playerA ? escapeHtml(playerA.name) : "—";
     const nameB = playerB ? escapeHtml(playerB.name) : "—";
     const refLabel = ref ? `Arbitre : ${escapeHtml(ref.name)}` : "Aucun arbitre";
+    const draft = ensureMatchDraft(match);
+    const scoreAValue = draft?.scoreA ?? "";
+    const scoreBValue = draft?.scoreB ?? "";
     const isLocked = isMatchLocked(match);
     const doneClass = match.status === "done" ? "done" : "";
     const lockedClass = isLocked ? "locked" : "";
@@ -1669,7 +1797,10 @@ function assignGroupsRoundRobin(count){
         </label>
       </div>`;
     const showCorrection = match.status === "done" && !isLocked;
-    const correctionButton = showCorrection ? `<button class="btn secondary" type="button" data-action="reset-match" data-match="${match.id}">Corriger</button>` : "";
+    const canValidate = !isLocked && !match.forfeitEnabled && match.status !== "done";
+    const correctionButton = showCorrection ? `<button class="btn secondary tiny" type="button" data-action="reset-match" data-match="${match.id}">Corriger</button>` : "";
+    const validateButton = canValidate ? `<button class="btn primary tiny" type="button" data-action="validate-match" data-match="${match.id}">✅ Valider</button>` : "";
+    const footerActions = [validateButton, correctionButton].filter(Boolean).join("");
     return `<article class="rotationMatchCard ${doneClass} ${lockedClass}" data-match="${match.id}" data-group="${match.groupIndex || ""}">
       <div class="rotationMatchHeader">
         <strong>${formatGroupLabel(match.groupIndex)}</strong>
@@ -1678,10 +1809,10 @@ function assignGroupsRoundRobin(count){
       <div class="rotationMatchTeams" data-match="${match.id}">
         <div class="scoreInput">
           <span>${nameA}</span>
-          <input type="number" inputmode="numeric" min="0" max="99" step="1" placeholder="0" value="${match.scoreA ?? ""}" data-field="scoreA" ${disabledAttr} />
+          <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${escapeHtml(scoreAValue)}" data-field="scoreA" ${disabledAttr} />
         </div>
         <div class="scoreInput">
-          <input type="number" inputmode="numeric" min="0" max="99" step="1" placeholder="0" value="${match.scoreB ?? ""}" data-field="scoreB" ${disabledAttr} />
+          <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${escapeHtml(scoreBValue)}" data-field="scoreB" ${disabledAttr} />
           <span>${nameB}</span>
         </div>
       </div>
@@ -1694,7 +1825,9 @@ function assignGroupsRoundRobin(count){
       </div>
       <div class="rotationMatchFooter">
         <span class="rotationMatchMeta" data-role="match-status">${statusText}</span>
-        ${correctionButton}
+        <div class="rotationMatchActions">
+          ${footerActions || ""}
+        </div>
       </div>
     </article>`;
   }
@@ -1725,11 +1858,15 @@ function assignGroupsRoundRobin(count){
     if(statusEl){
       statusEl.textContent = formatMatchStatus(match);
     }
-    card.querySelectorAll("input[type='number'][data-field]").forEach((input)=>{
+    const draft = ensureMatchDraft(match);
+    card.querySelectorAll("input[data-field]").forEach((input)=>{
       const fieldName = input.dataset.field;
-      input.value = match[fieldName] ?? "";
+      input.value = draft?.[fieldName] ?? "";
       const disableScores = locked || match.forfeitEnabled || match.status === "done";
       input.disabled = disableScores;
+      if(!disableScores){
+        input.removeAttribute("data-dirty");
+      }
     });
     const forfeitToggle = card.querySelector('[data-action="toggle-forfeit"]');
     if(forfeitToggle){
@@ -2015,19 +2152,3 @@ function assignGroupsRoundRobin(count){
     openStudentSummary(studentId);
   }
 })();
-  function handleRotationScoreChange(event){
-    const input = event.target;
-    if(!input || input.tagName !== "INPUT" || input.type !== "number") return;
-    const field = input.dataset.field;
-    if(field !== "scoreA" && field !== "scoreB") return;
-    const card = input.closest("[data-match]");
-    const matchId = card?.dataset.match;
-    if(!matchId) return;
-    const round = getCurrentRoundData();
-    if(!round) return;
-    const match = round.matches.find((m)=>m.id === matchId);
-    if(!match) return;
-    flushRotationPersist();
-    updateRotationMatchCard(card, match);
-    refreshRotationButtons();
-  }

@@ -307,6 +307,9 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .scoreInput{display:flex;align-items:center;gap:8px;}
 .scoreInput input{width:4.8rem;text-align:center;border:1px solid var(--line);border-radius:12px;padding:6px 6px;font-size:1.05rem;font-family:inherit;font-weight:600;}
 .scoreInput input:disabled{opacity:.7;background:#ecfccb;border-color:#bbf7d0;}
+.rotationMatchFooter{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.rotationMatchActions{display:flex;gap:8px;flex-wrap:wrap;}
+.btn.tiny{padding:8px 14px;font-size:0.85rem;border-radius:12px;}
 .rotationMatchMeta{font-size:0.9rem;color:var(--muted);}
 .rotationMatchEmpty{padding:12px;border:1px dashed var(--line);border-radius:16px;text-align:center;color:var(--muted);}
 .modal{position:fixed;inset:0;background:var(--modal-scrim);display:flex;align-items:center;justify-content:center;padding:20px;z-index:99;}
