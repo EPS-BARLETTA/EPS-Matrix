@@ -293,11 +293,11 @@
       const priorityA = studentDisplayPriority(a.stu);
       const priorityB = studentDisplayPriority(b.stu);
       if(priorityA !== priorityB) return priorityA - priorityB;
-      if(priorityA === 0){
-        const groupA = window.EPSMatrix.parseGroupIndex(a.stu.groupTag) || 999;
-        const groupB = window.EPSMatrix.parseGroupIndex(b.stu.groupTag) || 999;
-        if(groupA !== groupB) return groupA - groupB;
-      }
+      const groupA = groupSortPriority(a.stu.groupTag);
+      const groupB = groupSortPriority(b.stu.groupTag);
+      if(groupA !== groupB) return groupA - groupB;
+      const nameCompare = (a.stu.name || "").localeCompare(b.stu.name || "", "fr");
+      if(nameCompare !== 0) return nameCompare;
       return a.idx - b.idx;
     }).map((entry)=>entry.stu);
   }
@@ -306,6 +306,17 @@
     if(student?.absent) return 2;
     if(student?.dispense) return 1;
     return 0;
+  }
+
+  function groupSortPriority(tag){
+    const index = window.EPSMatrix.parseGroupIndex ? window.EPSMatrix.parseGroupIndex(tag) : Number(tag);
+    if(Number.isFinite(index) && index > 0){
+      return index;
+    }
+    if(tag){
+      return 500;
+    }
+    return 999;
   }
 
   function computeScore(stu){
