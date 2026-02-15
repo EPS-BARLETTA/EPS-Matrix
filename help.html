@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EPS Matrix – Aide</title>
+  <script>
+    (function(){
+      try{
+        const stored = localStorage.getItem('eps.matrix.theme');
+        if(stored){ document.documentElement.dataset.theme = stored; }
+      }catch(_e){}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="theme.js"></script>
+</head>
+<body>
+  <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
+  <main class="card-full" style="gap:24px;max-width:960px;">
+    <header class="app">
+      <div>
+        <h2>Aide & modes d'emploi</h2>
+        <p class="dragHint">Version du <span id="helpDate"></span></p>
+      </div>
+      <div class="navButtons">
+        <a class="btn secondary" href="hub.html">← Retour hub</a>
+        <a class="btn secondary" href="evaluation.html" target="_blank" rel="noopener">Ouvrir une évaluation</a>
+      </div>
+    </header>
+
+    <section class="manualBlock" data-tone="blue">
+      <h3>Sauvegarder ou récupérer ses données</h3>
+      <ul>
+        <li><strong>Archive d’évaluation (.epsarchive.json)</strong> : exporte une seule évaluation (critères + notes). À réimporter depuis “Importer un archivage” dans une classe.</li>
+        <li><strong>Sauvegarde complète (.epsbackup.json)</strong> : capture toute l’app (“Sauvegarder mes classes”) ou une classe (“Sauvegarder la classe”). Fichier structuré avec <code>kind</code> = <em>epsmatrix.appBackup</em> ou <em>epsmatrix.classBackup</em>.</li>
+        <li><strong>Import non destructif</strong> : restaurer ajoute ou duplique (classe suffixée “(restaurée AAAA-MM-JJ)”, évaluations clonées si l’ID existe). Rien n’est écrasé automatiquement.</li>
+        <li><strong>Workflow iPad Fichiers</strong> : exporter, déposer dans Fichiers, renommer si besoin. Pour restaurer, “Récupérer une sauvegarde” puis choisir le fichier. Tu peux vider le cache navigateur après avoir mis tes sauvegardes de côté.</li>
+        <li><strong>Rapports</strong> : chaque import affiche combien de classes/évaluations ont été ajoutées, dupliquées ou ignorées (format incompatible).</li>
+      </ul>
+    </section>
+
+    <section class="manualBlock" data-tone="green">
+      <h3>Archivage des évaluations</h3>
+      <ul>
+        <li>Cliquer sur “Archiver” masque simplement l’évaluation (statut = archivées). Les données restent dans la classe.</li>
+        <li>Les listes affichent une section “Archivées” dans la classe : tu peux ouvrir, désarchiver ou supprimer depuis cette section.</li>
+        <li>Exporter/Importer continue de fonctionner même pour une évaluation archivée.</li>
+      </ul>
+    </section>
+
+    <section class="manualBlock" data-tone="orange">
+      <h3>ABS / DISP (absent / dispensé)</h3>
+      <ul>
+        <li>Les badges ABS/DISP sont toujours visibles dans le tableau. Les lignes deviennent gris clair (DISP) ou gris bleuté (ABS) et sont triées à la fin.</li>
+        <li>En mode terrain, ABS et DISP basculent automatiquement dans la carte “Hors terrain” : ils ne participent plus aux matchs tant que le statut reste actif.</li>
+        <li>L’export CSV ajoute deux colonnes <code>absent</code> et <code>dispense</code> (true/false). L’import CSV accepte ces colonnes et met à jour les statuts.</li>
+      </ul>
+    </section>
+
+    <section class="manualBlock" data-tone="pink">
+      <h3>Mode terrain (type iDoceo)</h3>
+      <ul>
+        <li><strong>Activer & initialiser</strong> : bouton “Mode terrain” dans l’évaluation → choisir le nombre de terrains (1 à 8) → “Initialiser” répartit les élèves présents (round-robin) et définit un arbitre max par terrain.</li>
+        <li><strong>Tableau = source de vérité</strong> : chaque élève possède <em>Terrain</em> + <em>Rôle</em>. Modifier ces champs dans le tableau met instantanément à jour les cartes terrains (et inversement).</li>
+        <li><strong>Vue globale</strong> : cartes Terrain 1..N avec Arbitre, Joueurs, sections “À affecter” et “Hors terrain (ABS/DISP)”. Tap sur une carte → vue détail.</li>
+        <li><strong>Vue détail</strong> : sélectionner gagnant/perdant, saisir un score libre, valider. Le système applique la règle officielle : le gagnant monte d’un terrain (ou reste sur T1) et devient arbitre, le perdant descend, l’ancien arbitre rejoue sur son terrain, et un seul arbitre par terrain est conservé.</li>
+        <li><strong>Notes libres</strong> : bouton 📝 à côté de chaque élève (tableau, cartes et vue détail) → modale texte synchronisée.</li>
+        <li><strong>Résultats</strong> : section dédiée “Mode terrain – Résultats” avec classement (points 3/1, puis victoires, puis terrain actuel, puis ordre alpha). Export CSV dédié disponible.</li>
+        <li><strong>Exemple</strong> : “Tournoi badminton 5e” avec 4 terrains / 12 élèves. Lance l’init → terrains T1..T4. Après chaque match, clique sur la carte, sélectionne gagnant/perdant, indique le score (ex : 21-17) → Valider. Après une dizaine de rotations, ouvre l’onglet Résultats pour annoncer les finalistes (points et rang affichés automatiquement).</li>
+      </ul>
+    </section>
+
+    <section class="manualBlock" data-tone="green">
+      <h3>Questions fréquentes</h3>
+      <ul>
+        <li><strong>Puis-je travailler hors-ligne ?</strong> Oui : tout est en localStorage. Pense simplement à exporter une sauvegarde régulièrement (fichiers .epsbackup.json).</li>
+        <li><strong>Et sur iPad + Apple Pencil ?</strong> Le mode stylet est optimisé pour Pencil : plein écran, gomme, épaisseurs, export PNG et multi-pages.</li>
+        <li><strong>Comment partager une grille ?</strong> Export CSV pour un collègue, ou archive .epsarchive.json pour une évaluation complète.</li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const label = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const target = document.getElementById('helpDate');
+    if(target){ target.textContent = label; }
+  </script>
+</body>
+</html>

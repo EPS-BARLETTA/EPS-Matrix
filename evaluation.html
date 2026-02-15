@@ -38,15 +38,80 @@
         </label>
         <button class="btn secondary" id="btnExportPdf">PDF</button>
         <button class="btn secondary" id="btnTableOnly">Plein écran</button>
+        <a class="btn secondary" href="help.html" target="_blank" rel="noopener">Aide</a>
       </div>
     </header>
     <div class="stats" id="evalStats"></div>
+    <section class="terrainPanel" id="terrainPanel">
+      <div class="terrainPanelHeader">
+        <div class="terrainToggleRow">
+          <label>
+            <input type="checkbox" id="toggleTerrainMode" />
+            Mode terrain
+          </label>
+          <p class="muted smallText">Organise rapidement tes terrains et arbitres.</p>
+        </div>
+        <div class="terrainConfig">
+          <label>Terrains
+            <input type="number" id="terrainCountInput" min="1" max="8" value="4" />
+          </label>
+          <button class="btn secondary" type="button" id="btnInitTerrains">Initialiser les terrains</button>
+        </div>
+      </div>
+      <p class="muted" id="terrainDisabledHint">Active le mode terrain pour afficher les cartes.</p>
+      <div class="terrainGrid" id="terrainGrid"></div>
+      <div class="terrainDetail hidden" id="terrainDetail">
+        <div class="terrainDetailHeader">
+          <button class="btn secondary" type="button" id="btnTerrainBack">← Vue globale</button>
+          <div class="terrainDetailNav">
+            <button class="btn secondary" type="button" id="btnTerrainPrev">Terrain précédent</button>
+            <button class="btn secondary" type="button" id="btnTerrainNext">Terrain suivant</button>
+          </div>
+        </div>
+        <h3 id="terrainDetailTitle">Terrain</h3>
+        <p id="terrainDetailRef" class="muted"></p>
+        <div id="terrainDetailPlayers" class="terrainDetailPlayers"></div>
+        <label class="terrainScoreField">Score / note
+          <input type="text" id="terrainScoreInput" placeholder="ex : 11-9" />
+        </label>
+        <div class="terrainDetailActions">
+          <button class="btn primary" type="button" id="btnValidateMatch">Valider le match</button>
+        </div>
+        <div class="terrainMatches">
+          <h4>Matches récents</h4>
+          <ul id="terrainMatchesList"></ul>
+        </div>
+      </div>
+    </section>
     <div class="tableWrapper">
       <table>
         <thead><tr id="thead"></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
+    <section class="resultsPanel hidden" id="resultsPanel">
+      <div class="sectionHeader">
+        <h3>Mode terrain – Résultats</h3>
+        <button class="btn secondary" type="button" id="btnExportResultsCsv">Exporter les résultats</button>
+      </div>
+      <div class="tableWrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Rang</th>
+              <th>Élève</th>
+              <th>Départ</th>
+              <th>Terrain actuel</th>
+              <th>Matchs</th>
+              <th>Gagnés</th>
+              <th>Perdus</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <div class="modal hidden" id="configModal" role="dialog" aria-modal="true">
@@ -101,6 +166,22 @@
       <div class="actions" style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
         <button class="btn secondary" id="btnCopyPrompt" type="button">Copier le prompt</button>
         <button class="btn primary" id="btnOpenChatGPT" type="button">Ouvrir chatgpt.com</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="terrainNoteModal" role="dialog" aria-modal="true">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2>Note terrain</h2>
+        <button class="iconButton" data-close-modal>&times;</button>
+      </div>
+      <p class="muted">Saisis une note libre visible dans le mode terrain.</p>
+      <textarea id="terrainNoteInput" style="width:100%;min-height:160px;border-radius:16px;border:1px solid var(--line);padding:12px;font-family:inherit;"></textarea>
+      <div class="actions modalActions">
+        <span class="flex-fill"></span>
+        <button class="btn secondary" type="button" data-close-modal>Annuler</button>
+        <button class="btn primary" type="button" id="btnSaveTerrainNote">Enregistrer</button>
       </div>
     </div>
   </div>

@@ -172,6 +172,51 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .status.success{color:#15803d;}
 .status.warning{color:#b45309;}
 .status.danger{color:#b91c1c;}
+.terrainPanel{border:1px solid var(--line);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:18px;text-align:left;background:#f9fbff;}
+.terrainPanelHeader{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;}
+.terrainToggleRow{display:flex;align-items:center;gap:12px;}
+.terrainToggleRow label{font-weight:600;display:flex;align-items:center;gap:8px;}
+.terrainToggleRow input{width:20px;height:20px;}
+.terrainConfig{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.terrainConfig label{font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.terrainConfig input{width:90px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-family:inherit;}
+.terrainGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+.terrainGrid.inset{opacity:.35;pointer-events:none;}
+.terrainCard{border:1px solid var(--line);border-radius:18px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(15,23,42,.08);}
+.terrainCard.compact{gap:6px;}
+.terrainCard header{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.terrainCard h3{margin:0;font-size:1rem;}
+.terrainIndex{font-weight:600;color:var(--muted);}
+.terrainLabel{margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.terrainChipList{display:flex;flex-wrap:wrap;gap:8px;}
+.terrainChip{padding:6px 12px;border-radius:14px;background:#eef2ff;font-weight:600;font-size:0.85rem;}
+.terrainChip.ref{background:#dbeafe;color:#1d4ed8;}
+.terrainChip.empty{background:#f1f5f9;color:#94a3b8;font-weight:500;}
+.terrainChip .terrainNoteBadge{margin-left:6px;font-size:0.85rem;}
+.terrainList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.terrainList .badge{margin-left:6px;padding:2px 8px;border-radius:999px;font-size:0.7rem;background:#e0e7ff;color:#312e81;}
+.terrainList .badge.warning{background:#fef3c7;color:#92400e;}
+.terrainList .badge.muted{background:#e2e8f0;color:#475569;}
+.smallText{font-size:0.85rem;}
+.terrainCell{min-width:120px;}
+.terrainCell select{width:100%;border:1px solid var(--line);border-radius:10px;padding:4px 6px;font-family:inherit;background:#fff;}
+.terrainCell select:disabled{opacity:.6;}
+.terrainNoteButton{border:none;background:rgba(15,23,42,.08);border-radius:10px;padding:4px 8px;margin-left:8px;cursor:pointer;}
+.terrainNoteButton:hover{background:rgba(15,23,42,.15);}
+.terrainDetail{margin-top:16px;border:1px solid var(--line);border-radius:20px;padding:18px;background:#fff;display:flex;flex-direction:column;gap:12px;}
+.terrainDetailHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.terrainDetailNav{display:flex;gap:8px;flex-wrap:wrap;}
+.terrainDetailPlayers{display:flex;flex-direction:column;gap:10px;}
+.terrainDetailRow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#f6f8ff;}
+.terrainDetailRowActions{display:flex;gap:8px;align-items:center;}
+.terrainDetailRowActions button{border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:#fff;font-weight:600;cursor:pointer;}
+.terrainDetailRowActions button.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.terrainScoreField{display:flex;flex-direction:column;font-weight:600;color:var(--muted);gap:6px;}
+.terrainScoreField input{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-family:inherit;}
+.terrainMatches ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.terrainMatches h4{margin:0;}
+.resultsPanel{border:1px solid var(--line);border-radius:24px;padding:20px;background:#fff;text-align:left;}
+.resultsPanel .sectionHeader{margin-bottom:12px;}
 .modal{position:fixed;inset:0;background:var(--modal-scrim);display:flex;align-items:center;justify-content:center;padding:20px;z-index:99;}
 .modalCard{background:var(--panel);border-radius:28px;padding:28px;width:min(820px,100%);max-height:90vh;overflow:auto;box-shadow:0 35px 120px rgba(10,20,40,.45);color:var(--navy);}
 .modalCard.large{width:min(960px,100%);}

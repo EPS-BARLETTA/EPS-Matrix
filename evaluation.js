@@ -28,6 +28,12 @@
     evaluation.data.showNote = false;
     window.EPSMatrix.saveState(state);
   }
+  evaluation.data.students.forEach((stu)=>window.EPSMatrix.ensureTerrainStudentFields(stu));
+  const hadTerrainMode = Boolean(evaluation.data.terrainMode);
+  evaluation.data.terrainMode = window.EPSMatrix.normalizeTerrainMode(evaluation.data.terrainMode, evaluation.data.students);
+  if(!hadTerrainMode){
+    window.EPSMatrix.saveState(state);
+  }
 
   const statsEl = document.getElementById("evalStats");
   const thead = document.getElementById("thead");
@@ -43,6 +49,32 @@
   const btnCopyPrompt = document.getElementById("btnCopyPrompt");
   const btnOpenChatGPT = document.getElementById("btnOpenChatGPT");
   const btnToggleNote = document.getElementById("btnToggleNote");
+  const terrainPanel = document.getElementById("terrainPanel");
+  const terrainToggle = document.getElementById("toggleTerrainMode");
+  const terrainCountInput = document.getElementById("terrainCountInput");
+  const btnInitTerrains = document.getElementById("btnInitTerrains");
+  const terrainGrid = document.getElementById("terrainGrid");
+  const terrainDisabledHint = document.getElementById("terrainDisabledHint");
+  const terrainDetail = document.getElementById("terrainDetail");
+  const btnTerrainBack = document.getElementById("btnTerrainBack");
+  const btnTerrainPrev = document.getElementById("btnTerrainPrev");
+  const btnTerrainNext = document.getElementById("btnTerrainNext");
+  const terrainDetailTitle = document.getElementById("terrainDetailTitle");
+  const terrainDetailRef = document.getElementById("terrainDetailRef");
+  const terrainDetailPlayers = document.getElementById("terrainDetailPlayers");
+  const terrainScoreInput = document.getElementById("terrainScoreInput");
+  const terrainMatchesList = document.getElementById("terrainMatchesList");
+  const btnValidateMatch = document.getElementById("btnValidateMatch");
+  const resultsPanel = document.getElementById("resultsPanel");
+  const resultsBody = document.getElementById("resultsBody");
+  const btnExportResultsCsv = document.getElementById("btnExportResultsCsv");
+  const terrainNoteModal = document.getElementById("terrainNoteModal");
+  const terrainNoteInput = document.getElementById("terrainNoteInput");
+  const btnSaveTerrainNote = document.getElementById("btnSaveTerrainNote");
+  let terrainNoteStudentId = null;
+  let currentTerrainId = null;
+  let currentWinnerId = null;
+  let currentLoserId = null;
 
   const evalTitleEl = document.getElementById("evalTitle");
   const evalMetaEl = document.getElementById("evalMeta");
@@ -110,28 +142,36 @@
   const classLevelLabel = describeClassLevel(cls.name);
 
   render();
+  setupTerrainEvents();
 
   function render(){
     criterionMap = buildCriterionMap();
     renderTable();
     updateStats();
     updateNoteToggle();
+    renderTerrainSection();
+    renderResultsTable();
   }
 
   function renderTable(){
     const showNote = Boolean(evaluation.data.showNote);
+    const terrainModeEnabled = Boolean(evaluation.data.terrainMode?.enabled);
     const baseFields = getActiveBaseFields();
-    const headers = ["Prénom","Groupe", ...baseFields.map((field)=>field.label), ...evaluation.data.criteria.map((c)=>c.label||"Critère")];
+    const headers = ["Prénom","Groupe"];
+    if(terrainModeEnabled){
+      headers.push("Terrain","Rôle");
+    }
+    headers.push(...baseFields.map((field)=>field.label), ...evaluation.data.criteria.map((c)=>c.label||"Critère"));
     if(showNote){ headers.push("Note"); }
     headers.push("Statut");
     thead.innerHTML = headers.map((h)=>`<th>${h}</th>`).join("");
     const orderedStudents = sortStudentsForDisplay(evaluation.data.students);
-    tbody.innerHTML = orderedStudents.map((stu)=>rowHTML(stu, baseFields, showNote)).join("");
+    tbody.innerHTML = orderedStudents.map((stu)=>rowHTML(stu, baseFields, showNote, terrainModeEnabled)).join("");
     tbody.querySelectorAll("select[data-field]").forEach(decorateSelect);
     applyGroupingStyles();
   }
 
-  function rowHTML(stu, baseFields, showNote){
+  function rowHTML(stu, baseFields, showNote, terrainModeEnabled){
     const criteriaCells = evaluation.data.criteria.map((crit)=>{
       const info = window.EPSMatrix.CRITERIA_TYPES[crit.type] || {};
       if(info.isComment){
@@ -145,9 +185,11 @@
     const noteCell = showNote ? `<td data-cell="note"><strong>${computeScore(stu)}</strong></td>` : "";
     const rowClass = stu.absent ? "isAbsent" : (stu.dispense ? "isDispense" : "");
     const classAttr = rowClass ? ` class="${rowClass}"` : "";
+    const terrainCells = terrainModeEnabled ? buildTerrainCells(stu) : "";
     return `<tr${classAttr} data-id="${stu.id}" data-name="${stu.name}" data-group="${stu.groupTag||""}">
       <td>${nameCell(stu)}</td>
       <td>${groupCell(stu)}</td>
+      ${terrainCells}
       ${baseCells}
       ${criteriaCells}
       ${noteCell}
@@ -179,6 +221,24 @@
       return `<td><textarea data-field="${field.id}">${value}</textarea></td>`;
     }
     return `<td><input type="text" data-field="${field.id}" value="${value}" /></td>`;
+  }
+
+  function buildTerrainCells(stu){
+    const terrainMode = evaluation.data.terrainMode;
+    const terrains = Array.isArray(terrainMode?.terrains) ? terrainMode.terrains : [];
+    const terrainOptions = ['<option value="">—</option>', ...terrains.map((terrain)=>`<option value="${terrain.id}" ${terrain.id===stu.terrainId?"selected":""}>${terrain.name}</option>`)].join("");
+    const roleOptions = [
+      `<option value="player" ${stu.role==="player"?"selected":""}>Joueur</option>`,
+      `<option value="ref" ${stu.role==="ref"?"selected":""}>Arbitre</option>`
+    ].join("");
+    return `
+      <td class="terrainCell">
+        <select data-field="terrainId" class="terrainPicker">${terrainOptions}</select>
+      </td>
+      <td class="terrainCell terrainRoleCell">
+        <select data-field="role" class="terrainPicker">${roleOptions}</select>
+        <button type="button" class="terrainNoteButton" title="Note terrain" data-action="open-terrain-note">📝</button>
+      </td>`;
   }
 
   function getOptionsForCriterion(crit, info){
@@ -291,6 +351,7 @@
   tbody.addEventListener("input", handleFieldChange);
   tbody.addEventListener("change", handleFieldChange);
   tbody.addEventListener("click", handlePresenceClick);
+  tbody.addEventListener("click", handleTerrainNoteClick);
 
   function handleFieldChange(event){
     const field = event.target.dataset.field;
@@ -299,7 +360,22 @@
     if(!row) return;
     const student = evaluation.data.students.find((stu)=>stu.id === row.dataset.id);
     if(!student) return;
-    student[field] = event.target.value;
+    window.EPSMatrix.ensureTerrainStudentFields(student);
+    const value = event.target.value;
+    if(field === "terrainId"){
+      student.terrainId = value;
+      persist();
+      render();
+      return;
+    }
+    if(field === "role"){
+      student.role = value || "player";
+      enforceSingleRefPerTerrain(evaluation.data.terrainMode);
+      persist();
+      render();
+      return;
+    }
+    student[field] = value;
     evaluation.data.savedAt = Date.now();
     window.EPSMatrix.saveState(state);
     if(event.target.tagName === "SELECT" && field !== "groupTag"){
@@ -335,6 +411,16 @@
     render();
   }
 
+  function handleTerrainNoteClick(event){
+    const noteBtn = event.target.closest("[data-action='open-terrain-note']");
+    if(!noteBtn) return;
+    const row = noteBtn.closest("tr");
+    if(!row) return;
+    const student = evaluation.data.students.find((stu)=>stu.id === row.dataset.id);
+    if(!student) return;
+    openTerrainNoteModal(student);
+  }
+
   document.getElementById("btnExportCsv")?.addEventListener("click", exportCSV);
   document.getElementById("inputImportCsv")?.addEventListener("change", handleImportCsv);
   document.getElementById("btnExportPdf")?.addEventListener("click", ()=>window.print());
@@ -355,6 +441,14 @@
     persist();
     render();
   });
+  btnSaveTerrainNote?.addEventListener("click", ()=>{
+    if(!terrainNoteStudentId) return;
+    const student = evaluation.data.students.find((stu)=>stu.id === terrainNoteStudentId);
+    if(!student) return;
+    student.freeNote = terrainNoteInput?.value || "";
+    persist();
+    closeTerrainNoteModal();
+  });
   document.getElementById("btnChatGPT")?.addEventListener("click", ()=>{
     if(chatgptPrompt){
       chatgptPrompt.value = buildChatGPTPrompt();
@@ -373,11 +467,24 @@
   btnOpenChatGPT?.addEventListener("click", ()=>{
     window.open("https://chatgpt.com/", "_blank","noopener");
   });
+  btnExportResultsCsv?.addEventListener("click", exportResultsCsv);
+  terrainGrid?.addEventListener("click", handleTerrainCardClick);
+  btnTerrainBack?.addEventListener("click", closeTerrainDetail);
+  btnTerrainPrev?.addEventListener("click", ()=>navigateTerrain(-1));
+  btnTerrainNext?.addEventListener("click", ()=>navigateTerrain(1));
+  terrainDetailPlayers?.addEventListener("click", handleTerrainDetailClick);
+  btnValidateMatch?.addEventListener("click", validateTerrainMatch);
 
   document.querySelectorAll("[data-close-modal]").forEach((btn)=>{
     btn.addEventListener("click", ()=>{
       const modal = btn.closest(".modal");
-      if(modal) modal.classList.add("hidden");
+      if(modal){
+        modal.classList.add("hidden");
+        if(modal.id === "terrainNoteModal"){
+          terrainNoteStudentId = null;
+          if(terrainNoteInput) terrainNoteInput.value = "";
+        }
+      }
     });
   });
 
@@ -822,5 +929,560 @@
     const active = Boolean(evaluation.data.showNote);
     btnToggleNote.textContent = active ? "Masquer la note" : "Afficher la note";
     btnToggleNote.classList.toggle("active", active);
+  }
+
+  function setupTerrainEvents(){
+    if(!terrainPanel || !terrainGrid) return;
+    if(terrainToggle){
+      terrainToggle.checked = Boolean(evaluation.data.terrainMode.enabled);
+      terrainToggle.addEventListener("change", ()=>{
+        evaluation.data.terrainMode.enabled = terrainToggle.checked;
+        persist();
+        renderTerrainSection();
+      });
+    }
+    if(terrainCountInput){
+      terrainCountInput.value = evaluation.data.terrainMode.terrainCount;
+      terrainCountInput.addEventListener("change", ()=>{
+        const nextValue = clampTerrainCountInput(terrainCountInput.value);
+        terrainCountInput.value = nextValue;
+        evaluation.data.terrainMode.terrainCount = nextValue;
+        persist();
+      });
+    }
+    btnInitTerrains?.addEventListener("click", ()=>{
+      initializeTerrains();
+    });
+  }
+
+  function openTerrainNoteModal(student){
+    if(!terrainNoteModal || !terrainNoteInput) return;
+    terrainNoteStudentId = student.id;
+    terrainNoteInput.value = student.freeNote || "";
+    terrainNoteModal.classList.remove("hidden");
+    setTimeout(()=>{ terrainNoteInput.focus(); }, 50);
+  }
+
+  function closeTerrainNoteModal(){
+    if(!terrainNoteModal) return;
+    terrainNoteStudentId = null;
+    if(terrainNoteInput){ terrainNoteInput.value = ""; }
+    terrainNoteModal.classList.add("hidden");
+  }
+
+  function clampTerrainCountInput(value){
+    return window.EPSMatrix.clampTerrainCount ? window.EPSMatrix.clampTerrainCount(value) : Math.min(MAX_TERRAINS, Math.max(1, Math.floor(Number(value)||1)));
+  }
+
+  function initializeTerrains(){
+    const mode = evaluation.data.terrainMode;
+    const count = clampTerrainCountInput(terrainCountInput?.value || mode.terrainCount);
+    mode.terrainCount = count;
+    mode.terrains = buildTerrainList(count, mode.terrains);
+    assignStudentsToTerrains(mode);
+    enforceSingleRefPerTerrain(mode);
+    persist();
+    render();
+  }
+
+  function buildTerrainList(count, currentList){
+    const terrains = [];
+    const existing = Array.isArray(currentList) ? currentList : [];
+    for(let index=1; index<=count; index++){
+      const fallbackId = `t${index}`;
+      const match = existing.find((terrain)=>terrain && (terrain.index === index || terrain.id === fallbackId));
+      terrains.push({
+        id: match?.id || fallbackId,
+        name: match?.name || `Terrain ${index}`,
+        index
+      });
+    }
+    return terrains;
+  }
+
+  function assignStudentsToTerrains(mode){
+    const terrainIds = mode.terrains.map((terrain)=>terrain.id);
+    if(!terrainIds.length) return;
+    const presentStudents = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
+    let cursor = 0;
+    presentStudents.forEach((stu)=>{
+      window.EPSMatrix.ensureTerrainStudentFields(stu);
+      if(terrainIds.includes(stu.terrainId)){
+        if(!stu.startTerrainId){
+          stu.startTerrainId = stu.terrainId;
+        }
+        return;
+      }
+      const targetId = terrainIds[cursor % terrainIds.length];
+      cursor++;
+      stu.terrainId = targetId;
+      if(!stu.startTerrainId){
+        stu.startTerrainId = targetId;
+      }
+    });
+  }
+
+  function enforceSingleRefPerTerrain(mode){
+    const validIds = new Set(mode.terrains.map((terrain)=>terrain.id));
+    const refsByTerrain = new Map();
+    evaluation.data.students.forEach((stu)=>{
+      if(!stu.terrainId || !validIds.has(stu.terrainId) || stu.role !== "ref"){
+        if(stu.role !== "ref"){
+          stu.role = "player";
+        }
+        return;
+      }
+      if(!refsByTerrain.has(stu.terrainId)){
+        refsByTerrain.set(stu.terrainId, stu.id);
+        return;
+      }
+      stu.role = "player";
+    });
+  }
+
+  function renderTerrainSection(){
+    if(!terrainPanel || !terrainGrid) return;
+    const mode = evaluation.data.terrainMode;
+    if(terrainToggle){
+      terrainToggle.checked = Boolean(mode.enabled);
+    }
+    if(terrainCountInput){
+      terrainCountInput.value = mode.terrainCount;
+      terrainCountInput.disabled = !mode.enabled;
+    }
+    if(btnInitTerrains){
+      btnInitTerrains.disabled = !mode.enabled;
+      btnInitTerrains.classList.toggle("disabled", !mode.enabled);
+    }
+    if(!mode.enabled){
+      closeTerrainDetail();
+      terrainGrid.innerHTML = "";
+      terrainDisabledHint?.classList.remove("hidden");
+      return;
+    }
+    terrainDisabledHint?.classList.add("hidden");
+    const cards = [];
+    const terrainIds = new Set(mode.terrains.map((terrain)=>terrain.id));
+    const present = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
+    const horsTerrain = evaluation.data.students.filter((stu)=>stu.absent || stu.dispense);
+    let unassigned = present.filter((stu)=>!terrainIds.has(stu.terrainId));
+    if(unassigned.length && terrainIds.size){
+      assignStudentsToTerrains(mode);
+      persist();
+      unassigned = present.filter((stu)=>!terrainIds.has(stu.terrainId));
+    }
+    mode.terrains.forEach((terrain)=>{
+      cards.push(buildTerrainCard(terrain));
+    });
+    if(unassigned.length){
+      cards.push(buildListCard("À affecter", unassigned, "warning"));
+    }
+    if(horsTerrain.length){
+      cards.push(buildListCard("Hors terrain (ABS/DISP)", horsTerrain, "muted"));
+    }
+    terrainGrid.innerHTML = cards.join("");
+    if(currentTerrainId){
+      renderTerrainDetail();
+    }
+  }
+
+  function renderResultsTable(){
+    if(!resultsPanel || !resultsBody) return;
+    const mode = evaluation.data.terrainMode;
+    if(!mode?.enabled){
+      resultsPanel.classList.add("hidden");
+      resultsBody.innerHTML = "";
+      return;
+    }
+    resultsPanel.classList.remove("hidden");
+    const terrainIndexMap = new Map((mode.terrains||[]).map((terrain)=>[terrain.id, terrain.index]));
+    const terrainNameMap = new Map((mode.terrains||[]).map((terrain)=>[terrain.id, terrain.name]));
+    const active = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
+    const ranked = active.map((stu)=>{
+      window.EPSMatrix.ensureTerrainStudentFields(stu);
+      const currentIndex = terrainIndexMap.get(stu.terrainId) || 999;
+      return {
+        id: stu.id,
+        name: stu.name,
+        start: terrainNameMap.get(stu.startTerrainId) || "—",
+        current: terrainNameMap.get(stu.terrainId) || "—",
+        stats:{
+          played: stu.stats?.played ?? 0,
+          wins: stu.stats?.wins ?? 0,
+          losses: stu.stats?.losses ?? 0,
+          points: stu.stats?.points ?? 0
+        },
+        sortKey:{points:stu.stats.points, wins:stu.stats.wins, index:currentIndex}
+      };
+    }).sort((a,b)=>{
+      if(b.sortKey.points !== a.sortKey.points) return b.sortKey.points - a.sortKey.points;
+      if(b.sortKey.wins !== a.sortKey.wins) return b.sortKey.wins - a.sortKey.wins;
+      if(a.sortKey.index !== b.sortKey.index) return a.sortKey.index - b.sortKey.index;
+      return a.name.localeCompare(b.name,"fr");
+    });
+    ranked.forEach((entry, idx)=>{ entry.rank = idx + 1; });
+    const off = evaluation.data.students.filter((stu)=>stu.absent || stu.dispense).map((stu)=>({
+      id: stu.id,
+      name: stu.name,
+      start: terrainNameMap.get(stu.startTerrainId) || "—",
+      current: stu.absent ? "ABS" : "DISP",
+      stats: {played:stu.stats?.played||0,wins:stu.stats?.wins||0,losses:stu.stats?.losses||0,points:stu.stats?.points||0},
+      rank: "—",
+      rowClass: stu.absent ? "isAbsent" : "isDispense"
+    }));
+    const rows = ranked.concat(off);
+    resultsBody.innerHTML = rows.map((entry)=>{
+      const rowClass = entry.rowClass ? ` class="${entry.rowClass}"` : "";
+      return `<tr${rowClass}>
+        <td>${entry.rank ?? "—"}</td>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${escapeHtml(entry.start)}</td>
+        <td>${escapeHtml(entry.current)}</td>
+        <td>${entry.stats?.played ?? 0}</td>
+        <td>${entry.stats?.wins ?? 0}</td>
+        <td>${entry.stats?.losses ?? 0}</td>
+        <td>${entry.stats?.points ?? 0}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function exportResultsCsv(){
+    if(!evaluation.data.terrainMode?.enabled){
+      alert("Active le mode terrain pour exporter les résultats.");
+      return;
+    }
+    const terrainNameMap = new Map((evaluation.data.terrainMode.terrains||[]).map((terrain)=>[terrain.id, terrain.name]));
+    const header = ["student_id","name","startTerrain","currentTerrain","played","wins","losses","points","rank"];
+    const rows = evaluation.data.students.map((stu)=>{
+      window.EPSMatrix.ensureTerrainStudentFields(stu);
+      const rank = computeStudentRank(stu.id);
+      return [
+        stu.id || "",
+        stu.name || "",
+        terrainNameMap.get(stu.startTerrainId) || "",
+        terrainNameMap.get(stu.terrainId) || (stu.absent?"ABS":stu.dispense?"DISP":""),
+        stu.stats?.played || 0,
+        stu.stats?.wins || 0,
+        stu.stats?.losses || 0,
+        stu.stats?.points || 0,
+        rank || ""
+      ];
+    });
+    const csv = [header, ...rows].map((line)=>line.map((cell)=>`"${String(cell ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const filename = `EPSMatrix_resultats_${window.EPSMatrix.sanitizeFileName(evaluation.activity)}_${new Date().toISOString().slice(0,10)}.csv`;
+    downloadFile(filename, csv, "text/csv");
+  }
+
+  function computeStudentRank(studentId){
+    const mode = evaluation.data.terrainMode;
+    if(!mode?.enabled) return "";
+    const terrainIndexMap = new Map((mode.terrains||[]).map((terrain)=>[terrain.id, terrain.index]));
+    const active = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
+    const ranked = active.map((stu)=>{
+      window.EPSMatrix.ensureTerrainStudentFields(stu);
+      const currentIndex = terrainIndexMap.get(stu.terrainId) || 999;
+      return {
+        id: stu.id,
+        points: stu.stats.points,
+        wins: stu.stats.wins,
+        index: currentIndex,
+        name: stu.name
+      };
+    }).sort((a,b)=>{
+      if(b.points !== a.points) return b.points - a.points;
+      if(b.wins !== a.wins) return b.wins - a.wins;
+      if(a.index !== b.index) return a.index - b.index;
+      return a.name.localeCompare(b.name,"fr");
+    });
+    const foundIndex = ranked.findIndex((entry)=>entry.id === studentId);
+    return foundIndex === -1 ? "" : (foundIndex + 1);
+  }
+
+  function buildTerrainCard(terrain){
+    const students = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense && stu.terrainId === terrain.id);
+    const ref = students.find((stu)=>stu.role === "ref");
+    const players = students.filter((stu)=>stu.role !== "ref");
+    const refBlock = ref ? terrainChipMarkup(ref, "ref") : `<div class="terrainChip empty">Aucun arbitre</div>`;
+    const playerList = players.length ? players.map((stu)=>terrainChipMarkup(stu)).join("") : `<p class="muted smallText">Aucun joueur assigné.</p>`;
+    return `<article class="terrainCard" data-terrain="${terrain.id}">
+      <header>
+        <h3>${terrain.name}</h3>
+        <span class="terrainIndex">#${terrain.index}</span>
+      </header>
+      <section>
+        <p class="terrainLabel">Arbitre</p>
+        ${refBlock}
+      </section>
+      <section>
+        <p class="terrainLabel">Joueurs</p>
+        <div class="terrainChipList">${playerList}</div>
+      </section>
+    </article>`;
+  }
+
+  function buildListCard(title, students, tone){
+    if(!students.length){
+      return `<article class="terrainCard compact"><header><h3>${title}</h3></header><p class="muted smallText">Aucun élève.</p></article>`;
+    }
+    const entries = students.map((stu)=>{
+      const badges = [];
+      if(stu.absent) badges.push("ABS");
+      if(stu.dispense) badges.push("DISP");
+      return `<li>${escapeHtml(stu.name)} ${badges.length ? `<span class="badge ${tone||""}">${badges.join("/")}</span>` : ""}</li>`;
+    }).join("");
+    return `<article class="terrainCard compact">
+      <header><h3>${title}</h3></header>
+      <ul class="terrainList">${entries}</ul>
+    </article>`;
+  }
+
+  function terrainChipMarkup(stu, extraClass){
+    const noteBadge = stu.freeNote ? `<span class="terrainNoteBadge" title="${escapeHtml(stu.freeNote)}">📝</span>` : "";
+    const className = extraClass ? `terrainChip ${extraClass}` : "terrainChip";
+    return `<div class="${className}">${escapeHtml(stu.name)}${noteBadge}</div>`;
+  }
+
+  function escapeHtml(value=""){
+    return String(value||"").replace(/[&<>"']/g, (char)=>{
+      switch(char){
+        case "&": return "&amp;";
+        case "<": return "&lt;";
+        case ">": return "&gt;";
+        case '"': return "&quot;";
+        case "'": return "&#39;";
+        default: return char;
+      }
+    });
+  }
+
+  function handleTerrainCardClick(event){
+    const card = event.target.closest(".terrainCard[data-terrain]");
+    if(!card || !evaluation.data.terrainMode?.enabled) return;
+    openTerrainDetail(card.dataset.terrain);
+  }
+
+  function openTerrainDetail(terrainId){
+    if(!terrainDetail) return;
+    currentTerrainId = terrainId;
+    currentWinnerId = null;
+    currentLoserId = null;
+    if(terrainScoreInput){ terrainScoreInput.value = ""; }
+    terrainDetail.classList.remove("hidden");
+    terrainGrid?.classList.add("inset");
+    renderTerrainDetail();
+  }
+
+  function closeTerrainDetail(){
+    currentTerrainId = null;
+    currentWinnerId = null;
+    currentLoserId = null;
+    terrainDetail?.classList.add("hidden");
+    terrainGrid?.classList.remove("inset");
+    if(terrainScoreInput){ terrainScoreInput.value = ""; }
+  }
+
+  function navigateTerrain(step){
+    if(!currentTerrainId) return;
+    const terrains = evaluation.data.terrainMode?.terrains || [];
+    if(!terrains.length) return;
+    let index = terrains.findIndex((terrain)=>terrain.id === currentTerrainId);
+    if(index === -1) return;
+    let nextIndex = index + step;
+    if(nextIndex < 0) nextIndex = terrains.length - 1;
+    if(nextIndex >= terrains.length) nextIndex = 0;
+    openTerrainDetail(terrains[nextIndex].id);
+  }
+
+  function handleTerrainDetailClick(event){
+    const action = event.target.dataset.action;
+    if(!action) return;
+    const row = event.target.closest("[data-student]");
+    if(!row) return;
+    const studentId = row.dataset.student;
+    if(action === "pick-winner"){
+      currentWinnerId = currentWinnerId === studentId ? null : studentId;
+      if(currentWinnerId && currentWinnerId === currentLoserId){
+        currentLoserId = null;
+      }
+      renderTerrainDetail();
+      return;
+    }
+    if(action === "pick-loser"){
+      currentLoserId = currentLoserId === studentId ? null : studentId;
+      if(currentLoserId && currentLoserId === currentWinnerId){
+        currentWinnerId = null;
+      }
+      renderTerrainDetail();
+      return;
+    }
+    if(action === "open-terrain-note"){
+      const student = evaluation.data.students.find((stu)=>stu.id === studentId);
+      if(student){
+        openTerrainNoteModal(student);
+      }
+    }
+  }
+
+  function renderTerrainDetail(){
+    if(!terrainDetail) return;
+    if(!currentTerrainId){
+      terrainDetail.classList.add("hidden");
+      terrainGrid?.classList.remove("inset");
+      return;
+    }
+    const mode = evaluation.data.terrainMode;
+    const terrain = mode?.terrains?.find((t)=>t.id === currentTerrainId);
+    if(!terrain){
+      closeTerrainDetail();
+      return;
+    }
+    const scoreValue = terrainScoreInput?.value || "";
+    const players = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense && stu.terrainId === terrain.id);
+    const ref = players.find((stu)=>stu.role === "ref");
+    if(terrainDetailTitle) terrainDetailTitle.textContent = `${terrain.name} – ${players.length} joueur(s)`;
+    if(terrainDetailRef) terrainDetailRef.textContent = ref ? `Arbitre actuel : ${ref.name}` : "Pas d'arbitre sur ce terrain.";
+    if(terrainDetailPlayers){
+      if(players.length < 2){
+        terrainDetailPlayers.innerHTML = `<p class="muted">Ajoute au moins deux joueurs pour valider un match.</p>`;
+      }else{
+        terrainDetailPlayers.innerHTML = players.map((stu)=>terrainDetailRowMarkup(stu)).join("");
+      }
+    }
+    const matches = Array.isArray(mode?.matches) ? mode.matches.filter((match)=>match.terrainId === terrain.id).slice(0,5) : [];
+    if(terrainMatchesList){
+      if(matches.length){
+        terrainMatchesList.innerHTML = matches.map((match)=>formatMatchEntry(match)).join("");
+      }else{
+        terrainMatchesList.innerHTML = '<li class="muted">Aucun match enregistré.</li>';
+      }
+    }
+    if(terrainScoreInput) terrainScoreInput.value = scoreValue;
+    const hasEnoughPlayers = players.length >= 2;
+    const ready = Boolean(currentWinnerId && currentLoserId && currentWinnerId !== currentLoserId);
+    if(btnValidateMatch){
+      btnValidateMatch.disabled = !hasEnoughPlayers || !ready;
+    }
+  }
+
+  function terrainDetailRowMarkup(student){
+    const winnerClass = currentWinnerId === student.id ? "active" : "";
+    const loserClass = currentLoserId === student.id ? "active" : "";
+    const noteBadge = student.freeNote ? `<span class="terrainNoteBadge" title="${escapeHtml(student.freeNote)}">📝</span>` : "";
+    return `<div class="terrainDetailRow" data-student="${student.id}">
+      <div>
+        <strong>${escapeHtml(student.name)}</strong>
+        ${noteBadge}
+      </div>
+      <div class="terrainDetailRowActions">
+        <button type="button" data-action="pick-winner" class="${winnerClass}">Gagnant</button>
+        <button type="button" data-action="pick-loser" class="${loserClass}">Perdant</button>
+        <button type="button" class="terrainNoteButton" data-action="open-terrain-note" title="Note terrain">📝</button>
+      </div>
+    </div>`;
+  }
+
+  function formatMatchEntry(match){
+    const winner = findStudentName(match.winnerId);
+    const loser = findStudentName(match.loserId);
+    const ref = findStudentName(match.refId);
+    const score = match.scoreText ? ` • ${escapeHtml(match.scoreText)}` : "";
+    const refLabel = ref ? ` – arbitre ${ref}` : "";
+    const timeLabel = match.at ? new Date(match.at).toLocaleTimeString("fr-FR",{hour:"2-digit", minute:"2-digit"}) : "";
+    return `<li><strong>${winner}</strong> bat ${loser}${score}${refLabel}<span class="muted"> (${timeLabel})</span></li>`;
+  }
+
+  function findStudentName(id){
+    if(!id) return "—";
+    const student = evaluation.data.students.find((stu)=>stu.id === id);
+    return student ? escapeHtml(student.name) : "—";
+  }
+
+  function validateTerrainMatch(){
+    if(!currentTerrainId) return;
+    if(!currentWinnerId || !currentLoserId || currentWinnerId === currentLoserId){
+      alert("Sélectionne un gagnant et un perdant différents.");
+      return;
+    }
+    const mode = evaluation.data.terrainMode;
+    const terrain = mode?.terrains?.find((t)=>t.id === currentTerrainId);
+    if(!terrain){
+      alert("Terrain introuvable.");
+      return;
+    }
+    const winner = evaluation.data.students.find((stu)=>stu.id === currentWinnerId);
+    const loser = evaluation.data.students.find((stu)=>stu.id === currentLoserId);
+    if(!winner || !loser){
+      alert("Élève introuvable.");
+      return;
+    }
+    const ref = evaluation.data.students.find((stu)=>stu.terrainId === terrain.id && stu.role === "ref");
+    applyMatchRotation(terrain, winner, loser, ref, terrainScoreInput?.value || "");
+    currentWinnerId = null;
+    currentLoserId = null;
+    if(terrainScoreInput){ terrainScoreInput.value = ""; }
+    render();
+    renderTerrainDetail();
+  }
+
+  function applyMatchRotation(terrain, winner, loser, ref, scoreText){
+    const mode = evaluation.data.terrainMode;
+    const terrains = mode?.terrains || [];
+    window.EPSMatrix.ensureTerrainStudentFields(winner);
+    window.EPSMatrix.ensureTerrainStudentFields(loser);
+    if(ref){
+      window.EPSMatrix.ensureTerrainStudentFields(ref);
+    }
+    bumpStats(winner, "win");
+    bumpStats(loser, "loss");
+    const winnerIndex = terrain.index;
+    const total = terrains.length;
+    const winnerTargetIndex = winnerIndex > 1 ? winnerIndex - 1 : 1;
+    const loserTargetIndex = winnerIndex < total ? winnerIndex + 1 : total;
+    const winnerTarget = terrains[winnerTargetIndex - 1];
+    const loserTarget = terrains[loserTargetIndex - 1];
+    if(winnerTarget){
+      winner.terrainId = winnerTarget.id;
+    }
+    if(loserTarget){
+      loser.terrainId = loserTarget.id;
+    }
+    winner.role = "ref";
+    loser.role = "player";
+    if(ref){
+      ref.role = "player";
+      ref.terrainId = terrain.id;
+    }
+    evaluation.data.students.forEach((stu)=>{
+      if(stu.id !== winner.id && stu.terrainId === winner.terrainId && stu.role === "ref"){
+        stu.role = "player";
+      }
+    });
+    mode.matches = Array.isArray(mode.matches) ? mode.matches : [];
+    mode.matches.unshift({
+      at: new Date().toISOString(),
+      terrainId: terrain.id,
+      winnerId: winner.id,
+      loserId: loser.id,
+      refId: ref?.id || null,
+      scoreText: scoreText ? scoreText.trim() : ""
+    });
+    if(mode.matches.length > 200){
+      mode.matches = mode.matches.slice(0,200);
+    }
+    enforceSingleRefPerTerrain(mode);
+    persist();
+  }
+
+  function bumpStats(student, result){
+    if(!student) return;
+    window.EPSMatrix.ensureTerrainStudentFields(student);
+    student.stats.played += 1;
+    if(result === "win"){
+      student.stats.wins += 1;
+      student.stats.points += 3;
+    }else if(result === "loss"){
+      student.stats.losses += 1;
+      student.stats.points += 1;
+    }
   }
 })();

@@ -4,6 +4,7 @@ const DEFAULT_CLASS_COLOR = "#1c5bff";
 const LISTE_DEFAULT = ["Niels","Valentina","Camille","Lea","Cecilia","Koray","Myla","Julie","Olivia","Gaia","Daria","Gabrielle","Evan","Anika","Marc","Emma","Auguste","Ysé","Victoria","Kenji","Tao","Edgar","Rafael","Bruno","Constance","Charlotte"];
 const ARCHIVE_VERSION = 1;
 const MAX_TERRAINS = 8;
+const DEFAULT_TERRAIN_COUNT = 4;
 const LEGACY_SCHEMA_VERSION = 1;
 const STUDENT_ID_SCHEMA_VERSION = 2;
 const CURRENT_SCHEMA_VERSION = STUDENT_ID_SCHEMA_VERSION;
@@ -171,7 +172,9 @@ function normalizeEvaluation(ev, cls){
     if(!stu.id) stu.id = genId("stu");
     if(typeof stu.groupTag === "undefined") stu.groupTag = "";
     criteria.forEach((crit)=>{ if(typeof stu[crit.id] === "undefined") stu[crit.id] = ""; });
+    ensureTerrainStudentFields(stu);
   });
+  const terrainMode = normalizeTerrainMode(ev.data?.terrainMode, students);
   const isArchived = ev.archived === true || ev.status === "archived";
   return {
     id: ev.id || genId("eval"),
@@ -188,7 +191,8 @@ function normalizeEvaluation(ev, cls){
       students,
       scoring: normalizeScoringForCriteria(criteria, ev.data?.scoring),
       savedAt: ev.data?.savedAt || Date.now(),
-      showNote: ev.data?.showNote === true
+      showNote: ev.data?.showNote === true,
+      terrainMode
     }
   };
 }
@@ -477,6 +481,10 @@ window.EPSMatrix = {
   computeStudentRawScore,
   computeStudentNote,
   sanitizeFileName,
+  clampTerrainCount,
+  createDefaultTerrainMode,
+  ensureTerrainStudentFields,
+  normalizeTerrainMode,
   ARCHIVE_VERSION,
   CURRENT_SCHEMA_VERSION
 };
@@ -484,6 +492,7 @@ window.EPSMatrix = {
 function createEvalStudent(name, criteria){
   const stu = {id:genId("stu"), name, groupTag:"", niveau:"", projet1:"", projet2:"", commentaire:"", absent:false, dispense:false};
   criteria.forEach((crit)=>{ stu[crit.id] = ""; });
+  ensureTerrainStudentFields(stu);
   return stu;
 }
 
@@ -525,4 +534,81 @@ function normalizeNotes(notes, cls){
 function randomStickyColor(){
   const palette = ["#fef9c3","#d9f99d","#bae6fd","#f5d0fe","#fed7aa","#fecdd3"];
   return palette[Math.floor(Math.random()*palette.length)];
+}
+
+function clampTerrainCount(value){
+  const parsed = Number(value);
+  if(!Number.isFinite(parsed) || parsed < 1) return 1;
+  if(parsed > MAX_TERRAINS) return MAX_TERRAINS;
+  return Math.floor(parsed);
+}
+
+function createDefaultTerrainMode(){
+  return {
+    enabled:false,
+    terrainCount:DEFAULT_TERRAIN_COUNT,
+    terrains:[],
+    matches:[]
+  };
+}
+
+function createDefaultTerrainStats(){
+  return {played:0, wins:0, losses:0, points:0};
+}
+
+function ensureTerrainStudentFields(student){
+  if(!student || typeof student !== "object") return;
+  if(typeof student.terrainId !== "string"){ student.terrainId = ""; }
+  if(student.role !== "ref"){ student.role = "player"; }
+  if(typeof student.freeNote !== "string"){ student.freeNote = ""; }
+  if(!student.stats || typeof student.stats !== "object"){
+    student.stats = createDefaultTerrainStats();
+  }else{
+    student.stats.played = Number(student.stats.played) || 0;
+    student.stats.wins = Number(student.stats.wins) || 0;
+    student.stats.losses = Number(student.stats.losses) || 0;
+    student.stats.points = Number(student.stats.points) || 0;
+  }
+  if(typeof student.startTerrainId !== "string"){
+    student.startTerrainId = student.terrainId || "";
+  }
+}
+
+function normalizeTerrainMode(rawMode, students){
+  const base = createDefaultTerrainMode();
+  const mode = Object.assign({}, base, rawMode || {});
+  mode.terrainCount = clampTerrainCount(mode.terrainCount || base.terrainCount);
+  const terrains = [];
+  const existing = Array.isArray(mode.terrains) ? mode.terrains : [];
+  for(let index=1; index<=mode.terrainCount; index++){
+    const fallbackId = `t${index}`;
+    const match = existing.find((terrain)=>terrain && (terrain.index === index || terrain.id === fallbackId));
+    terrains.push({
+      id: match?.id || fallbackId,
+      name: match?.name || `Terrain ${index}`,
+      index
+    });
+  }
+  mode.terrains = terrains;
+  mode.matches = Array.isArray(mode.matches) ? mode.matches.map((entry)=>{
+    const terrainId = typeof entry?.terrainId === "string" ? entry.terrainId : terrains[0]?.id;
+    return {
+      at: entry?.at || new Date().toISOString(),
+      terrainId,
+      winnerId: entry?.winnerId || null,
+      loserId: entry?.loserId || null,
+      refId: typeof entry?.refId === "string" ? entry.refId : null,
+      scoreText: typeof entry?.scoreText === "string" ? entry.scoreText : ""
+    };
+  }).filter((entry)=>entry.winnerId && entry.loserId) : [];
+  const validTerrainIds = new Set(terrains.map((terrain)=>terrain.id));
+  if(Array.isArray(students)){
+    students.forEach((stu)=>{
+      ensureTerrainStudentFields(stu);
+      if(stu.terrainId && !validTerrainIds.has(stu.terrainId)){
+        stu.terrainId = "";
+      }
+    });
+  }
+  return mode;
 }
