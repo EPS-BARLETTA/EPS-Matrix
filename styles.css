@@ -281,7 +281,7 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .rotationMatchTeams{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}
 .rotationMatchTeams .scoreInput{display:flex;align-items:center;gap:8px;}
 .scoreInput{display:flex;align-items:center;gap:8px;}
-.scoreInput input{width:70px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:1rem;font-family:inherit;}
+.scoreInput input{width:4.8rem;text-align:center;border:1px solid var(--line);border-radius:12px;padding:6px 6px;font-size:1.05rem;font-family:inherit;font-weight:600;}
 .scoreInput input:disabled{opacity:.7;background:#ecfccb;border-color:#bbf7d0;}
 .rotationMatchMeta{font-size:0.9rem;color:var(--muted);}
 .rotationMatchEmpty{padding:12px;border:1px dashed var(--line);border-radius:16px;text-align:center;color:var(--muted);}
@@ -302,6 +302,11 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .baseFieldItem{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;border:1px solid var(--line);background:#f5f7ff;font-weight:600;color:var(--navy);}
 .baseFieldGrid p{margin:6px 0 0;width:100%;color:var(--muted);font-size:0.9rem;}
 .baseFieldItem input{width:auto;}
+.baseFieldCell{white-space:nowrap;}
+.baseFieldSelect{width:9.5rem;max-width:9.5rem;min-width:9.5rem;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}
+@media (max-width:640px){
+  .baseFieldSelect{width:8.2rem;max-width:8.2rem;min-width:8.2rem;}
+}
 .scoreRow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0;}
 .scoreRow input{max-width:100px;text-align:center;}
 .levelSelect{width:100%;border-radius:10px;padding:4px 8px;border:1px solid var(--line);background:#fff;transition:.2s ease;color:var(--navy);}

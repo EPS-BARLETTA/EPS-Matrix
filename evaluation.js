@@ -216,9 +216,9 @@
   function baseFieldCell(field, stu){
     const value = stu[field.id] || "";
     if(field.type === "textarea"){
-      return `<td><textarea data-field="${field.id}">${value}</textarea></td>`;
+      return `<td class="baseFieldCell"><textarea data-field="${field.id}">${value}</textarea></td>`;
     }
-    return `<td><input type="text" data-field="${field.id}" value="${value}" /></td>`;
+    return `<td class="baseFieldCell"><input type="text" class="baseFieldSelect" data-field="${field.id}" value="${value}" /></td>`;
   }
 
   function getOptionsForCriterion(crit, info){
@@ -1313,34 +1313,36 @@ function assignGroupsRoundRobin(count){
       });
       if(roster.length < 2) return;
       let ref = roster.find((stu)=>stu.role === "ref");
+      if(roster.length === 2 && ref){
+        ref.role = "player";
+        ref = null;
+      }
       if(roundNumber === 1 && roster.length >= 3 && !ref){
         const pick = roster[Math.floor(Math.random()*roster.length)];
         pick.role = "ref";
         enforceSingleRefForGroup(groupIndex, pick.id);
         ref = pick;
       }
-      const candidates = roster.filter((stu)=>!ref || stu.id !== ref.id);
-      let aId = ref ? ref.id : null;
-      let challenger = null;
-      if(ref){
-        challenger = candidates.find((stu)=>entrantMap?.[stu.id] === roundNumber) || candidates[0];
-        if(!challenger){
-          aId = null;
-        }
+      const playerPool = ref ? roster.filter((stu)=>stu.id !== ref.id) : roster.slice();
+      if(playerPool.length < 2){
+        console.warn("EPS Matrix – pas assez de joueurs pour créer un match", {groupIndex, roster: roster.map((stu)=>stu.name)});
+        return;
       }
-      if(!aId){
-        if(candidates.length < 2) return;
-        aId = candidates[0].id;
-        challenger = candidates[1];
+      const firstPlayer = pickPlayerForMatch(playerPool, entrantMap, roundNumber);
+      const secondPlayer = pickPlayerForMatch(playerPool.filter((stu)=>stu.id !== firstPlayer?.id), entrantMap, roundNumber, firstPlayer?.id);
+      if(!firstPlayer || !secondPlayer){
+        console.warn("EPS Matrix – sélection joueurs impossible", {groupIndex});
+        return;
       }
-      if(!challenger){
+      if(ref && (firstPlayer.id === ref.id || secondPlayer.id === ref.id)){
+        console.warn("EPS Matrix – l'arbitre apparaît dans le match, match ignoré", {groupIndex, refId: ref.id});
         return;
       }
       matches.push({
         id: window.EPSMatrix.genId("match"),
         groupIndex,
-        aId,
-        bId: challenger.id,
+        aId: firstPlayer.id,
+        bId: secondPlayer.id,
         round: roundNumber,
         refId: ref?.id || null,
         scoreA: null,
@@ -1358,6 +1360,14 @@ function assignGroupsRoundRobin(count){
       createdAt: new Date().toISOString(),
       matches
     };
+  }
+
+  function pickPlayerForMatch(pool, entrantMap, roundNumber, excludeId){
+    if(!pool || !pool.length) return null;
+    const prioritized = pool.find((stu)=>entrantMap?.[stu.id] === roundNumber && stu.id !== excludeId);
+    if(prioritized) return prioritized;
+    const fallback = pool.find((stu)=>stu.id !== excludeId);
+    return fallback || pool[0] || null;
   }
 
   function setStudentGroup(student, groupIndex){
@@ -1642,10 +1652,10 @@ function assignGroupsRoundRobin(count){
       <div class="rotationMatchTeams" data-match="${match.id}">
         <div class="scoreInput">
           <span>${nameA}</span>
-          <input type="number" min="0" step="1" placeholder="0" value="${match.scoreA ?? ""}" data-field="scoreA" ${disabledAttr} />
+          <input type="number" inputmode="numeric" min="0" max="99" step="1" placeholder="0" value="${match.scoreA ?? ""}" data-field="scoreA" ${disabledAttr} />
         </div>
         <div class="scoreInput">
-          <input type="number" min="0" step="1" placeholder="0" value="${match.scoreB ?? ""}" data-field="scoreB" ${disabledAttr} />
+          <input type="number" inputmode="numeric" min="0" max="99" step="1" placeholder="0" value="${match.scoreB ?? ""}" data-field="scoreB" ${disabledAttr} />
           <span>${nameB}</span>
         </div>
       </div>
