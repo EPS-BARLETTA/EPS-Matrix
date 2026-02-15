@@ -31,6 +31,9 @@
   evaluation.data.students.forEach((stu)=>window.EPSMatrix.ensureTerrainStudentFields(stu));
   const hadTerrainMode = Boolean(evaluation.data.terrainMode);
   evaluation.data.terrainMode = window.EPSMatrix.normalizeTerrainMode(evaluation.data.terrainMode, evaluation.data.students);
+  if(typeof evaluation.data.activeMode !== "string"){
+    evaluation.data.activeMode = evaluation.data.terrainMode?.enabled ? "terrain" : "classic";
+  }
   ensureCurrentRound();
   if(!hadTerrainMode){
     window.EPSMatrix.saveState(state);
@@ -52,6 +55,12 @@
   const btnToggleNote = document.getElementById("btnToggleNote");
   const terrainPanel = document.getElementById("terrainPanel");
   const terrainToggleBtn = document.getElementById("btnToggleTerrainMode");
+  const btnCordeeMode = document.getElementById("btnToggleCordeeMode");
+  const btnEquipeMode = document.getElementById("btnToggleEquipeMode");
+  const btnCollectifMode = document.getElementById("btnToggleCollectifMode");
+  const terrainModeHint = document.getElementById("terrainModeHint");
+  const modeSoonMessage = document.getElementById("modeSoonMessage");
+  const terrainConfigRow = document.getElementById("terrainConfigRow");
   const terrainCountInput = document.getElementById("terrainCountInput");
   const btnInitTerrains = document.getElementById("btnInitTerrains");
   const terrainGrid = document.getElementById("terrainGrid");
@@ -85,6 +94,7 @@
   let viewingStudentId = null;
   let rotationPersistTimer = null;
   const matchScoreDrafts = new Map();
+  let modeSoonTimer = null;
 
   const evalTitleEl = document.getElementById("evalTitle");
   const evalMetaEl = document.getElementById("evalMeta");
@@ -1354,10 +1364,13 @@
     if(!terrainPanel) return;
     if(terrainToggleBtn){
       updateTerrainToggleButton();
-      terrainToggleBtn.addEventListener("click", ()=>{
-        toggleTerrainMode();
-      });
+      terrainToggleBtn.addEventListener("click", ()=>toggleTerrainMode());
     }
+    [btnCordeeMode, btnEquipeMode, btnCollectifMode].forEach((btn)=>{
+      btn?.addEventListener("click", ()=>{
+        showPlaceholderMessage(`${btn.textContent?.trim() || "Ce mode"} arrive bientôt.`);
+      });
+    });
     if(terrainCountInput){
       terrainCountInput.value = evaluation.data.terrainMode.terrainCount;
       terrainCountInput.addEventListener("change", ()=>{
@@ -1401,6 +1414,8 @@
       matchScoreDrafts.clear();
       hideRotationReadyPopup();
     }
+    evaluation.data.activeMode = next ? "terrain" : "classic";
+    hidePlaceholderMessage();
     persist();
     renderTerrainSection();
     renderRotationPanel();
@@ -1410,9 +1425,39 @@
   function updateTerrainToggleButton(){
     if(!terrainToggleBtn) return;
     const enabled = Boolean(evaluation.data.terrainMode?.enabled);
-    terrainToggleBtn.textContent = enabled ? "Désactiver le mode terrain" : "Activer le mode terrain";
+    terrainToggleBtn.textContent = enabled ? "Terrain (raquettes) activé" : "Activer Terrain (raquettes)";
     terrainToggleBtn.classList.toggle("active", enabled);
     terrainToggleBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    if(terrainModeHint){
+      terrainModeHint.textContent = enabled
+        ? "Mode terrain (montée/descente) : règle le nombre de terrains puis initialise le classement."
+        : "Choisis un mode pour afficher ses options.";
+    }
+    setTerrainConfigVisibility(enabled);
+  }
+
+  function setTerrainConfigVisibility(visible){
+    if(!terrainConfigRow) return;
+    terrainConfigRow.classList.toggle("hidden", !visible);
+  }
+
+  function showPlaceholderMessage(text){
+    if(!modeSoonMessage) return;
+    modeSoonMessage.textContent = text || "Arrive bientôt";
+    modeSoonMessage.classList.remove("hidden");
+    if(modeSoonTimer){
+      clearTimeout(modeSoonTimer);
+    }
+    modeSoonTimer = setTimeout(()=>modeSoonMessage.classList.add("hidden"), 2500);
+  }
+
+  function hidePlaceholderMessage(){
+    if(!modeSoonMessage) return;
+    modeSoonMessage.classList.add("hidden");
+    if(modeSoonTimer){
+      clearTimeout(modeSoonTimer);
+      modeSoonTimer = null;
+    }
   }
 
   function initializeTerrains(){

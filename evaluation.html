@@ -45,10 +45,16 @@
     <section class="terrainPanel" id="terrainPanel">
       <div class="terrainPanelHeader">
         <div class="terrainToggleRow">
-          <button class="btn secondary" type="button" id="btnToggleTerrainMode">Activer le mode terrain</button>
-          <p class="muted smallText" id="terrainModeHint">Les terrains utilisent les groupes (G1 = Terrain 1).</p>
+          <div class="modeButtonGroup">
+            <button class="btn secondary modeSwitch" type="button" id="btnToggleTerrainMode">Activer le mode terrain</button>
+            <button class="btn secondary modeSwitch ghost" type="button" id="btnToggleCordeeMode">Mode cordée</button>
+            <button class="btn secondary modeSwitch ghost" type="button" id="btnToggleEquipeMode">Mode équipe</button>
+            <button class="btn secondary modeSwitch ghost" type="button" id="btnToggleCollectifMode">Mode collectif</button>
+          </div>
+          <p class="muted smallText" id="terrainModeHint">Choisis un mode pour afficher ses options.</p>
+          <p class="modeSoon hidden" id="modeSoonMessage">Arrive bientôt</p>
         </div>
-        <div class="terrainConfig">
+        <div class="terrainConfig hidden" id="terrainConfigRow">
           <label>Nombre de terrains
             <input type="number" id="terrainCountInput" min="1" max="20" value="4" />
           </label>

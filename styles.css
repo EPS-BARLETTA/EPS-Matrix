@@ -206,8 +206,13 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainPanel{border:1px solid var(--line);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:18px;text-align:left;background:#f9fbff;}
 .terrainPanelHeader{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;}
 .terrainToggleRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-.terrainToggleRow .btn{min-width:200px;}
+.modeButtonGroup{display:flex;gap:10px;flex-wrap:wrap;}
+.modeSwitch{min-width:180px;}
+.modeSwitch.ghost{opacity:.6;}
+.modeSwitch.active{background:var(--blue);color:#fff;}
 #terrainModeHint{margin:0;}
+.modeSoon{margin:0;color:var(--blue);font-weight:600;}
+.modeSoon.hidden{display:none;}
 .terrainConfig{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .terrainConfig label{font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;}
 .terrainConfig input{width:90px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-family:inherit;}
