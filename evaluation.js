@@ -31,6 +31,7 @@
   evaluation.data.students.forEach((stu)=>window.EPSMatrix.ensureTerrainStudentFields(stu));
   const hadTerrainMode = Boolean(evaluation.data.terrainMode);
   evaluation.data.terrainMode = window.EPSMatrix.normalizeTerrainMode(evaluation.data.terrainMode, evaluation.data.students);
+  ensureCurrentRound();
   if(!hadTerrainMode){
     window.EPSMatrix.saveState(state);
   }
@@ -56,20 +57,6 @@
   const terrainGrid = document.getElementById("terrainGrid");
   const terrainDisabledHint = document.getElementById("terrainDisabledHint");
   const terrainMatchesList = document.getElementById("terrainMatchesList");
-  const matchModal = document.getElementById("matchModal");
-  const matchModalTitle = document.getElementById("matchModalTitle");
-  const matchWinnerSelect = document.getElementById("matchWinnerSelect");
-  const matchLoserSelect = document.getElementById("matchLoserSelect");
-  const matchScoreInput = document.getElementById("matchScoreInput");
-  const matchRefSelect = document.getElementById("matchRefSelect");
-  const matchForfeitToggle = document.getElementById("matchForfeitToggle");
-  const matchForfeitSelect = document.getElementById("matchForfeitSelect");
-  const correctionStudentSelect = document.getElementById("correctionStudentSelect");
-  const correctionTargetGroup = document.getElementById("correctionTargetGroup");
-  const correctionRefSelect = document.getElementById("correctionRefSelect");
-  const btnApplyMove = document.getElementById("btnApplyMove");
-  const btnApplyRef = document.getElementById("btnApplyRef");
-  const btnValidateMatch = document.getElementById("btnValidateMatch");
   const resultsPanel = document.getElementById("resultsPanel");
   const resultsBody = document.getElementById("resultsBody");
   const btnExportResultsCsv = document.getElementById("btnExportResultsCsv");
@@ -79,12 +66,16 @@
   const playerNoteInput = document.getElementById("playerNoteInput");
   const playerRoleSelect = document.getElementById("playerRoleSelect");
   const btnSavePlayer = document.getElementById("btnSavePlayer");
+  const rotationPanel = document.getElementById("rotationPanel");
+  const rotationMatchesEl = document.getElementById("rotationMatches");
+  const btnNextRotation = document.getElementById("btnNextRotation");
+  const btnUndoRotation = document.getElementById("btnUndoRotation");
+  const rotationRoundLabel = document.getElementById("rotationRoundLabel");
   const studentSummaryModal = document.getElementById("studentSummaryModal");
   const studentSummaryTitle = document.getElementById("studentSummaryTitle");
   const studentSummaryMeta = document.getElementById("studentSummaryMeta");
   const studentSummaryStats = document.getElementById("studentSummaryStats");
   const studentMatchesList = document.getElementById("studentMatchesList");
-  let currentMatchGroupIndex = null;
   let editingPlayerId = null;
   let viewingStudentId = null;
 
@@ -162,6 +153,7 @@
     updateStats();
     updateNoteToggle();
     renderTerrainSection();
+    renderRotationPanel();
     renderResultsTable();
   }
 
@@ -409,6 +401,302 @@
     render();
   }
 
+  function handleRotationScoreInput(event){
+    const input = event.target;
+    if(!input || input.tagName !== "INPUT" || input.type !== "number") return;
+    const field = input.dataset.field;
+    if(field !== "scoreA" && field !== "scoreB") return;
+    const card = input.closest("[data-match]");
+    if(!card) return;
+    const matchId = card.dataset.match;
+    const round = getCurrentRoundData();
+    if(!round) return;
+    const match = round.matches.find((m)=>m.id === matchId);
+    if(!match) return;
+    if(match.status === "done"){
+      input.value = match[field] ?? "";
+      return;
+    }
+    if(match.forfeitEnabled){
+      input.value = "";
+      return;
+    }
+    const rawValue = input.value.trim();
+    let value = rawValue === "" ? null : Number(rawValue);
+    if(value !== null){
+      if(!Number.isFinite(value) || value < 0){
+        alert("Score invalide.");
+        input.value = "";
+        value = null;
+      }else{
+        value = Math.floor(value);
+      }
+    }
+    match[field] = value;
+    evaluateMatchScore(match, input);
+    persist();
+    renderRotationPanel();
+  }
+
+  function handleRotationMatchClick(event){
+    const target = event.target.closest("[data-action]");
+    if(!target) return;
+    if(target.dataset.action !== "reset-match") return;
+    const matchId = target.dataset.match;
+    const round = getCurrentRoundData();
+    if(!round) return;
+    const match = round.matches.find((m)=>m.id === matchId);
+    if(!match) return;
+    if(isMatchLocked(match)){
+      alert("Ce match est verrouillé car la rotation est déjà validée.");
+      return;
+    }
+    resetMatchScore(match, true);
+    persist();
+    renderRotationPanel();
+  }
+
+  function handleRotationControlChange(event){
+    const target = event.target;
+    if(!target) return;
+    const action = target.dataset.action;
+    if(action !== "toggle-forfeit" && action !== "select-forfeit") return;
+    const matchId = target.dataset.match;
+    const round = getCurrentRoundData();
+    if(!round) return;
+    const match = round.matches.find((m)=>m.id === matchId);
+    if(!match) return;
+    if(isMatchLocked(match)){
+      event.preventDefault();
+      alert("Ce match est verrouillé car la rotation est déjà validée.");
+      renderRotationPanel();
+      return;
+    }
+    if(action === "toggle-forfeit"){
+      const enabled = target.checked;
+      if(enabled){
+        match.forfeitEnabled = true;
+        resetMatchScore(match, true, {keepForfeitState:true});
+      }else{
+        resetMatchScore(match, true);
+      }
+      persist();
+      renderRotationPanel();
+      return;
+    }
+    if(action === "select-forfeit"){
+      if(!match.forfeitEnabled){
+        match.forfeitEnabled = true;
+      }
+      const playerKey = target.dataset.player;
+      const playerId = playerKey === "a" ? match.aId : match.bId;
+      if(!playerId){
+        alert("Impossible d'enregistrer l'abandon : joueur introuvable.");
+        renderRotationPanel();
+        return;
+      }
+      const opponentId = playerId === match.aId ? match.bId : match.aId;
+      if(!opponentId){
+        alert("Il manque un adversaire pour valider ce match.");
+        renderRotationPanel();
+        return;
+      }
+      match.forfeitId = playerId;
+      match.scoreA = null;
+      match.scoreB = null;
+      match.scoreText = "FORFAIT";
+      match.status = "done";
+      match.winnerId = opponentId;
+      match.loserId = playerId;
+      persist();
+      renderRotationPanel();
+    }
+  }
+
+  function handleNextRotation(){
+    const mode = evaluation.data.terrainMode;
+    if(!mode?.enabled){
+      alert("Active le mode terrain pour lancer la rotation suivante.");
+      return;
+    }
+    const round = getCurrentRoundData();
+    if(!round || !Array.isArray(round.matches) || !round.matches.length){
+      alert("Aucune rotation en cours.");
+      return;
+    }
+    const playableMatches = round.matches.filter((match)=>match.aId && match.bId);
+    if(!playableMatches.length){
+      alert("Aucun match à jouer pour cette rotation.");
+      return;
+    }
+    const pending = playableMatches.filter((match)=>match.status !== "done");
+    if(pending.length){
+      alert("Complète tous les scores avant de passer à la rotation suivante.");
+      return;
+    }
+    storeUndoSnapshot(round);
+    const applied = applyRoundResults(round);
+    if(!applied){
+      delete mode.undoLastRotation;
+      alert("Aucun match terminé à appliquer.");
+      return;
+    }
+    const nextRoundNumber = round.round + 1;
+    evaluation.data.terrainMode.currentRound = nextRoundNumber;
+    cleanupOldEntrants(nextRoundNumber);
+    const nextRound = buildRound(nextRoundNumber);
+    if(nextRound){
+      upsertRound(nextRound);
+    }
+    persist();
+    render();
+  }
+
+  function storeUndoSnapshot(round){
+    const mode = evaluation.data.terrainMode;
+    if(!mode) return;
+    const snapshot = {
+      savedAt: new Date().toISOString(),
+      round: round?.round || mode.currentRound || 1,
+      students: evaluation.data.students.map((stu)=>({id:stu.id, groupTag:stu.groupTag, role:stu.role})),
+      entrantRoundByStudentId: JSON.parse(JSON.stringify(mode.entrantRoundByStudentId || {})),
+      rounds: JSON.parse(JSON.stringify(mode.rounds || [])),
+      matchesLog: JSON.parse(JSON.stringify(mode.matches || []))
+    };
+    clearMatchLocks(snapshot.rounds);
+    mode.undoLastRotation = snapshot;
+  }
+
+  function handleUndoRotation(){
+    const mode = evaluation.data.terrainMode;
+    if(!mode?.undoLastRotation){
+      alert("Aucune rotation à annuler.");
+      return;
+    }
+    const snapshot = mode.undoLastRotation;
+    const studentMap = new Map(snapshot.students?.map((entry)=>[entry.id, entry]));
+    evaluation.data.students.forEach((stu)=>{
+      const saved = studentMap.get(stu.id);
+      if(!saved) return;
+      stu.groupTag = saved.groupTag || "";
+      stu.role = saved.role || "player";
+      window.EPSMatrix.ensureTerrainStudentFields(stu);
+    });
+    mode.currentRound = snapshot.round || 1;
+    mode.entrantRoundByStudentId = snapshot.entrantRoundByStudentId || {};
+    mode.rounds = snapshot.rounds || [];
+    mode.matches = snapshot.matchesLog || [];
+    delete mode.undoLastRotation;
+    clearMatchLocks(mode.rounds);
+    persist();
+    render();
+  }
+
+  function applyRoundResults(round){
+    const mode = evaluation.data.terrainMode;
+    if(!mode) return false;
+    const entrantMap = mode.entrantRoundByStudentId && typeof mode.entrantRoundByStudentId === "object" ? mode.entrantRoundByStudentId : {};
+    mode.entrantRoundByStudentId = entrantMap;
+    const history = Array.isArray(mode.matches) ? mode.matches.slice() : [];
+    const nextRoundNumber = round.round + 1;
+    let appliedCount = 0;
+    (round.matches || []).forEach((match)=>{
+      if(match.status !== "done" || !match.winnerId || !match.loserId) return;
+      match.round = round.round;
+      const winner = evaluation.data.students.find((stu)=>stu.id === match.winnerId);
+      const loser = evaluation.data.students.find((stu)=>stu.id === match.loserId);
+      if(!winner || !loser) return;
+      const ref = match.refId ? evaluation.data.students.find((stu)=>stu.id === match.refId) : null;
+      const prevWinnerGroup = window.EPSMatrix.parseGroupIndex(winner.groupTag);
+      const prevLoserGroup = window.EPSMatrix.parseGroupIndex(loser.groupTag);
+      applyMatchResult({
+        groupIndex: match.groupIndex,
+        winner,
+        loser,
+        ref,
+        scoreText: match.scoreText || "",
+        forfeitId: match.forfeitId || null
+      });
+      const nextWinnerGroup = window.EPSMatrix.parseGroupIndex(winner.groupTag);
+      const nextLoserGroup = window.EPSMatrix.parseGroupIndex(loser.groupTag);
+      if(prevWinnerGroup !== nextWinnerGroup && nextWinnerGroup){
+        entrantMap[winner.id] = nextRoundNumber;
+      }
+      if(prevLoserGroup !== nextLoserGroup && nextLoserGroup){
+        entrantMap[loser.id] = nextRoundNumber;
+      }
+      history.unshift({
+        at: new Date().toISOString(),
+        groupIndex: match.groupIndex || prevWinnerGroup || prevLoserGroup || 1,
+        round: round.round,
+        winnerId: winner.id,
+        loserId: loser.id,
+        refId: ref?.id || null,
+        scoreText: match.scoreText || "",
+        forfeitId: match.forfeitId || null
+      });
+      appliedCount += 1;
+    });
+    if(!appliedCount) return false;
+    mode.matches = history.slice(0, 200);
+    mode.entrantRoundByStudentId = entrantMap;
+    return true;
+  }
+
+  function cleanupOldEntrants(minRound){
+    const mode = evaluation.data.terrainMode;
+    if(!mode?.entrantRoundByStudentId) return;
+    Object.keys(mode.entrantRoundByStudentId).forEach((studentId)=>{
+      if(mode.entrantRoundByStudentId[studentId] < minRound){
+        delete mode.entrantRoundByStudentId[studentId];
+      }
+    });
+  }
+
+  function evaluateMatchScore(match, input){
+    if(match.scoreA === null || match.scoreB === null){
+      resetMatchScore(match);
+      return;
+    }
+    match.forfeitEnabled = false;
+    match.forfeitId = null;
+    if(match.scoreA === match.scoreB){
+      alert("Égalité impossible, saisis des scores différents.");
+      if(input){
+        input.value = "";
+      }
+      const field = input?.dataset.field;
+      if(field === "scoreA" || field === "scoreB"){
+        match[field] = null;
+      }
+      resetMatchScore(match);
+      return;
+    }
+    match.status = "done";
+    const winnerIsA = match.scoreA > match.scoreB;
+    match.winnerId = winnerIsA ? match.aId : match.bId;
+    match.loserId = winnerIsA ? match.bId : match.aId;
+    match.scoreText = `${match.scoreA}-${match.scoreB}`;
+  }
+
+  function resetMatchScore(match, clearScores=false, options={}){
+    const keepForfeitState = options.keepForfeitState === true;
+    if(clearScores){
+      match.scoreA = null;
+      match.scoreB = null;
+    }
+    match.status = "pending";
+    match.winnerId = null;
+    match.loserId = null;
+    match.scoreText = "";
+    if(keepForfeitState){
+      match.forfeitId = null;
+    }else{
+      match.forfeitId = null;
+      match.forfeitEnabled = false;
+    }
+  }
+
 
   document.getElementById("btnExportCsv")?.addEventListener("click", exportCSV);
   document.getElementById("inputImportCsv")?.addEventListener("change", handleImportCsv);
@@ -450,15 +738,16 @@
   });
   btnExportResultsCsv?.addEventListener("click", exportResultsCsv);
   resultsBody?.addEventListener("click", handleResultsClick);
+  rotationMatchesEl?.addEventListener("input", handleRotationScoreInput);
+  rotationMatchesEl?.addEventListener("click", handleRotationMatchClick);
+  rotationMatchesEl?.addEventListener("change", handleRotationControlChange);
 
   document.querySelectorAll("[data-close-modal]").forEach((btn)=>{
     btn.addEventListener("click", ()=>{
       const modal = btn.closest(".modal");
       if(modal){
         modal.classList.add("hidden");
-        if(modal.id === "matchModal"){
-          resetMatchModal();
-        }else if(modal.id === "playerModal"){
+        if(modal.id === "playerModal"){
           editingPlayerId = null;
         }else if(modal.id === "studentSummaryModal"){
           viewingStudentId = null;
@@ -920,9 +1209,11 @@
         evaluation.data.terrainMode.enabled = terrainToggle.checked;
         if(terrainToggle.checked){
           enforceSingleRefEverywhere();
+          ensureCurrentRound();
         }
         persist();
         renderTerrainSection();
+        renderRotationPanel();
         renderResultsTable();
       });
     }
@@ -936,15 +1227,9 @@
     }
     btnInitTerrains?.addEventListener("click", initializeTerrains);
     terrainGrid?.addEventListener("click", handleTerrainGridClick);
-    matchForfeitToggle?.addEventListener("change", ()=>{
-      if(matchForfeitSelect){
-        matchForfeitSelect.disabled = !matchForfeitToggle.checked;
-      }
-    });
-    btnApplyMove?.addEventListener("click", applyManualMove);
-    btnApplyRef?.addEventListener("click", applyManualRef);
-    btnValidateMatch?.addEventListener("click", handleMatchValidation);
     btnSavePlayer?.addEventListener("click", savePlayerModal);
+    btnNextRotation?.addEventListener("click", handleNextRotation);
+    btnUndoRotation?.addEventListener("click", handleUndoRotation);
   }
 
   function clampTerrainCountInput(value){
@@ -961,7 +1246,7 @@
     render();
   }
 
-  function assignGroupsRoundRobin(count){
+function assignGroupsRoundRobin(count){
     const present = evaluation.data.students.filter((stu)=>!stu.absent && !stu.dispense);
     present.forEach((stu, idx)=>{
       const target = (idx % count) + 1;
@@ -973,6 +1258,106 @@
         stu.role = "player";
       }
     });
+}
+
+  function ensureCurrentRound(){
+    const mode = evaluation.data.terrainMode;
+    const roundNumber = mode.currentRound || 1;
+    mode.currentRound = roundNumber;
+    let round = Array.isArray(mode.rounds) ? mode.rounds.find((entry)=>entry.round === roundNumber) : null;
+    if(!round){
+      const nextRound = buildRound(roundNumber);
+      if(nextRound){
+        upsertRound(nextRound);
+        persist();
+      }
+    }
+  }
+
+  function upsertRound(roundData){
+    if(!roundData) return;
+    const mode = evaluation.data.terrainMode;
+    mode.rounds = Array.isArray(mode.rounds) ? mode.rounds : [];
+    const index = mode.rounds.findIndex((entry)=>entry.round === roundData.round);
+    if(index === -1){
+      mode.rounds.push(roundData);
+    }else{
+      mode.rounds[index] = roundData;
+    }
+    mode.rounds.sort((a, b)=>a.round - b.round);
+    clearMatchLocks(mode.rounds);
+  }
+
+  function clearMatchLocks(rounds){
+    (rounds || []).forEach((round)=>{
+      (round.matches || []).forEach((match)=>{
+        if(round?.round){
+          match.round = round.round;
+        }
+        if(match.locked){
+          delete match.locked;
+        }
+      });
+    });
+  }
+
+  function buildRound(roundNumber){
+    const mode = evaluation.data.terrainMode;
+    const matches = [];
+    const entrantMap = mode.entrantRoundByStudentId || {};
+    const groups = getAllGroupIndexes();
+    groups.forEach((groupIndex)=>{
+      const roster = evaluation.data.students.filter((stu)=>{
+        if(stu.absent || stu.dispense) return false;
+        return window.EPSMatrix.parseGroupIndex(stu.groupTag) === groupIndex;
+      });
+      if(roster.length < 2) return;
+      let ref = roster.find((stu)=>stu.role === "ref");
+      if(roundNumber === 1 && roster.length >= 3 && !ref){
+        const pick = roster[Math.floor(Math.random()*roster.length)];
+        pick.role = "ref";
+        enforceSingleRefForGroup(groupIndex, pick.id);
+        ref = pick;
+      }
+      const candidates = roster.filter((stu)=>!ref || stu.id !== ref.id);
+      let aId = ref ? ref.id : null;
+      let challenger = null;
+      if(ref){
+        challenger = candidates.find((stu)=>entrantMap?.[stu.id] === roundNumber) || candidates[0];
+        if(!challenger){
+          aId = null;
+        }
+      }
+      if(!aId){
+        if(candidates.length < 2) return;
+        aId = candidates[0].id;
+        challenger = candidates[1];
+      }
+      if(!challenger){
+        return;
+      }
+      matches.push({
+        id: window.EPSMatrix.genId("match"),
+        groupIndex,
+        aId,
+        bId: challenger.id,
+        round: roundNumber,
+        refId: ref?.id || null,
+        scoreA: null,
+        scoreB: null,
+        status: "pending",
+        winnerId: null,
+        loserId: null,
+        forfeitId: null,
+        forfeitEnabled: false
+      });
+    });
+    if(!matches.length) return null;
+    return {
+      round: roundNumber,
+      createdAt: new Date().toISOString(),
+      matches
+    };
   }
 
   function setStudentGroup(student, groupIndex){
@@ -1096,7 +1481,7 @@
           <h3>${group.label}</h3>
           <p class="terrainLabel">Joueurs : ${group.students.length}</p>
         </div>
-        <button class="btn secondary" type="button" data-action="open-match" data-group="${group.index}">Match</button>
+        <button class="btn secondary" type="button" data-action="focus-score" data-group="${group.index}">Saisir score</button>
       </header>
       ${refBlock}
       <ul class="terrainStudentList">${studentList}</ul>
@@ -1146,8 +1531,136 @@
     const refLabel = match.refId ? ` – arbitre ${ref}` : "";
     const timeLabel = match.at ? new Date(match.at).toLocaleTimeString("fr-FR",{hour:"2-digit", minute:"2-digit"}) : "";
     const groupLabel = formatGroupLabel(match.groupIndex || 1);
-    const abandon = match.forfeitId ? ` – abandon ${findStudentName(match.forfeitId)}` : "";
+    const abandon = match.forfeitId ? ` – Abandon (${findStudentName(match.forfeitId)})` : "";
     return `<li><span class="muted">${groupLabel}</span> • <strong>${winner}</strong> bat ${loser}${score}${refLabel}${abandon}<span class="muted"> (${timeLabel})</span></li>`;
+  }
+
+  function renderRotationPanel(){
+    if(!rotationPanel || !rotationMatchesEl){
+      return;
+    }
+    const mode = evaluation.data.terrainMode;
+    if(!mode?.enabled){
+      rotationPanel.classList.add("hidden");
+      if(rotationRoundLabel){
+        rotationRoundLabel.textContent = "";
+      }
+      btnNextRotation?.setAttribute("disabled","disabled");
+      btnUndoRotation?.setAttribute("disabled","disabled");
+      return;
+    }
+    rotationPanel.classList.remove("hidden");
+    const currentRound = mode.currentRound || 1;
+    if(rotationRoundLabel){
+      rotationRoundLabel.textContent = `Rotation #${currentRound}`;
+    }
+    const round = mode.rounds?.find((entry)=>entry.round === currentRound);
+    if(!round || !round.matches?.length){
+      rotationMatchesEl.innerHTML = '<div class="rotationMatchEmpty">Aucun match pour cette rotation. Clique sur “Initialiser le classement” pour préparer les affiches.</div>';
+      btnNextRotation?.setAttribute("disabled","disabled");
+      updateUndoButton();
+      return;
+    }
+    const cards = round.matches.map((match)=>rotationMatchCard(match)).join("");
+    rotationMatchesEl.innerHTML = cards;
+    updateRotationCta(round);
+    updateUndoButton();
+  }
+
+  function updateRotationCta(round){
+    if(!btnNextRotation) return;
+    if(!round || !round.matches?.length){
+      btnNextRotation.setAttribute("disabled","disabled");
+      return;
+    }
+    const ready = round.matches.every((match)=>{
+      if(!match.aId || !match.bId) return true;
+      return match.status === "done";
+    });
+    btnNextRotation.toggleAttribute("disabled", !ready);
+  }
+
+  function updateUndoButton(){
+    if(!btnUndoRotation) return;
+    const mode = evaluation.data.terrainMode;
+    const snapshotAvailable = Boolean(mode?.undoLastRotation);
+    const currentRound = mode?.currentRound || 1;
+    const disabled = !snapshotAvailable || currentRound <= 1;
+    btnUndoRotation.toggleAttribute("disabled", disabled);
+  }
+
+  function isMatchLocked(match){
+    const mode = evaluation.data.terrainMode;
+    const currentRound = mode?.currentRound || 1;
+    const matchRound = Number(match?.round);
+    if(!matchRound) return false;
+    return matchRound < currentRound;
+  }
+
+  function getCurrentRoundData(){
+    const mode = evaluation.data.terrainMode;
+    if(!mode?.rounds?.length) return null;
+    const roundNumber = mode.currentRound || 1;
+    return mode.rounds.find((round)=>round.round === roundNumber) || null;
+  }
+
+  function rotationMatchCard(match){
+    const playerA = evaluation.data.students.find((stu)=>stu.id === match.aId);
+    const playerB = evaluation.data.students.find((stu)=>stu.id === match.bId);
+    const ref = evaluation.data.students.find((stu)=>stu.id === match.refId);
+    const nameA = playerA ? escapeHtml(playerA.name) : "—";
+    const nameB = playerB ? escapeHtml(playerB.name) : "—";
+    const refLabel = ref ? `Arbitre : ${escapeHtml(ref.name)}` : "Aucun arbitre";
+    const isLocked = isMatchLocked(match);
+    const doneClass = match.status === "done" ? "done" : "";
+    const lockedClass = isLocked ? "locked" : "";
+    const disableScores = isLocked || match.forfeitEnabled || match.status === "done";
+    const disabledAttr = disableScores ? "disabled" : "";
+    const toggleDisabledAttr = isLocked ? "disabled" : "";
+    const forfeitVisible = match.forfeitEnabled === true;
+    const forfeitClass = forfeitVisible ? "" : "hidden";
+    const statusLabel = match.status === "done" ? (match.forfeitId ? "Terminé – Forfait" : "Terminé") : "En attente";
+    const forfeitHelper = match.forfeitId ? ` • Abandon : ${match.forfeitId === match.aId ? nameA : nameB}` : "";
+    const forfeitRadios = `
+      <div class="forfeitRadios ${forfeitClass}">
+        <label>
+          <input type="radio" name="forfeit-${match.id}" data-action="select-forfeit" data-match="${match.id}" data-player="a" ${match.forfeitId === match.aId ? "checked" : ""} ${toggleDisabledAttr} />
+          ${nameA} abandonne
+        </label>
+        <label>
+          <input type="radio" name="forfeit-${match.id}" data-action="select-forfeit" data-match="${match.id}" data-player="b" ${match.forfeitId === match.bId ? "checked" : ""} ${toggleDisabledAttr} />
+          ${nameB} abandonne
+        </label>
+      </div>`;
+    const showCorrection = match.status === "done" && !isLocked;
+    const correctionButton = showCorrection ? `<button class="btn secondary" type="button" data-action="reset-match" data-match="${match.id}">Corriger</button>` : "";
+    return `<article class="rotationMatchCard ${doneClass} ${lockedClass}" data-match="${match.id}" data-group="${match.groupIndex || ""}">
+      <div class="rotationMatchHeader">
+        <strong>${formatGroupLabel(match.groupIndex)}</strong>
+        <span class="rotationMatchMeta">${refLabel}</span>
+      </div>
+      <div class="rotationMatchTeams" data-match="${match.id}">
+        <div class="scoreInput">
+          <span>${nameA}</span>
+          <input type="number" min="0" step="1" placeholder="0" value="${match.scoreA ?? ""}" data-field="scoreA" ${disabledAttr} />
+        </div>
+        <div class="scoreInput">
+          <input type="number" min="0" step="1" placeholder="0" value="${match.scoreB ?? ""}" data-field="scoreB" ${disabledAttr} />
+          <span>${nameB}</span>
+        </div>
+      </div>
+      <div class="rotationMatchExtras">
+        <label class="forfeitToggle">
+          <input type="checkbox" data-action="toggle-forfeit" data-match="${match.id}" ${forfeitVisible ? "checked" : ""} ${toggleDisabledAttr} />
+          Abandon
+        </label>
+        ${forfeitRadios}
+      </div>
+      <div class="rotationMatchFooter">
+        <span class="rotationMatchMeta">Statut : ${statusLabel}${forfeitHelper}</span>
+        ${correctionButton}
+      </div>
+    </article>`;
   }
 
   function findStudentName(id){
@@ -1160,9 +1673,13 @@
     const action = event.target.dataset.action || event.target.closest("[data-action]")?.dataset.action;
     if(!action) return;
     const target = event.target.closest("[data-action]");
-    if(action === "open-match"){
+    if(action === "focus-score"){
       const groupIndex = Number(target?.dataset.group || event.target.dataset.group);
-      if(groupIndex) openMatchModal(groupIndex);
+      if(groupIndex){
+        focusRotationCard(groupIndex);
+      }else{
+        alert("Terrain introuvable.");
+      }
       return;
     }
     if(action === "open-player"){
@@ -1171,96 +1688,24 @@
     }
   }
 
-  function openMatchModal(groupIndex){
-    if(!matchModal) return;
-    currentMatchGroupIndex = groupIndex;
-    if(matchModalTitle){
-      matchModalTitle.textContent = `Match – ${formatGroupLabel(groupIndex)}`;
-    }
-    populateMatchForm(groupIndex);
-    matchModal.classList.remove("hidden");
-  }
-
-  function resetMatchModal(){
-    currentMatchGroupIndex = null;
-    matchWinnerSelect && (matchWinnerSelect.innerHTML = "");
-    matchLoserSelect && (matchLoserSelect.innerHTML = "");
-    matchRefSelect && (matchRefSelect.innerHTML = "");
-    matchScoreInput && (matchScoreInput.value = "");
-    matchForfeitToggle && (matchForfeitToggle.checked = false);
-    matchForfeitSelect && (matchForfeitSelect.innerHTML = "", matchForfeitSelect.disabled = true);
-    correctionStudentSelect && (correctionStudentSelect.innerHTML = "");
-    correctionTargetGroup && (correctionTargetGroup.innerHTML = "");
-    correctionRefSelect && (correctionRefSelect.innerHTML = "");
-  }
-
-  function populateMatchForm(groupIndex){
-    const players = getGroupStudents(groupIndex);
-    const options = players.map((stu)=>`<option value="${stu.id}">${escapeHtml(stu.name)}</option>`).join("");
-    if(matchWinnerSelect) matchWinnerSelect.innerHTML = `<option value="">Sélectionner</option>${options}`;
-    if(matchLoserSelect) matchLoserSelect.innerHTML = `<option value="">Sélectionner</option>${options}`;
-    const refOptions = ['<option value="">Aucun</option>', ...players.map((stu)=>`<option value="${stu.id}" ${stu.role==="ref"?"selected":""}>${escapeHtml(stu.name)}</option>`)].join("");
-    if(matchRefSelect) matchRefSelect.innerHTML = refOptions;
-    if(matchScoreInput) matchScoreInput.value = "";
-    if(matchForfeitSelect){
-      matchForfeitSelect.innerHTML = `<option value="">—</option>${options}`;
-      matchForfeitSelect.disabled = true;
-    }
-    if(correctionStudentSelect) correctionStudentSelect.innerHTML = `<option value="">Choisir</option>${options}`;
-    const targetOptions = getAllGroupIndexes().map((idx)=>`<option value="${idx}">${formatGroupLabel(idx)}</option>`).join("");
-    if(correctionTargetGroup) correctionTargetGroup.innerHTML = targetOptions;
-    if(correctionRefSelect) correctionRefSelect.innerHTML = `<option value="">Choisir</option>${options}`;
-    if(btnValidateMatch) btnValidateMatch.disabled = players.length < 2;
-  }
-
-  function getGroupStudents(index){
-    return evaluation.data.students.filter((stu)=>{
-      if(stu.absent || stu.dispense) return false;
-      return window.EPSMatrix.parseGroupIndex(stu.groupTag) === index;
-    });
-  }
-
-  function handleMatchValidation(){
-    if(!currentMatchGroupIndex || !matchWinnerSelect || !matchLoserSelect) return;
-    const winnerId = matchWinnerSelect.value;
-    const loserId = matchLoserSelect.value;
-    if(!winnerId || !loserId || winnerId === loserId){
-      alert("Sélectionne un gagnant et un perdant différents.");
+  function focusRotationCard(groupIndex){
+    if(!evaluation.data.terrainMode?.enabled){
+      alert("Active le mode terrain pour saisir les scores.");
       return;
     }
-    const winner = evaluation.data.students.find((stu)=>stu.id === winnerId);
-    const loser = evaluation.data.students.find((stu)=>stu.id === loserId);
-    if(!winner || !loser){
-      alert("Élève introuvable.");
+    ensureCurrentRound();
+    if(!rotationMatchesEl){
+      alert("Aucune rotation en cours.");
       return;
     }
-    const refId = matchRefSelect?.value || null;
-    const ref = refId ? evaluation.data.students.find((stu)=>stu.id === refId) : null;
-    const scoreText = matchScoreInput?.value?.trim() || "";
-    const forfeitId = matchForfeitToggle?.checked ? (matchForfeitSelect?.value || null) : null;
-    recordMatchResult({groupIndex:currentMatchGroupIndex, winner, loser, ref, scoreText, forfeitId});
-    resetMatchModal();
-    matchModal?.classList.add("hidden");
-  }
-
-  function recordMatchResult(payload){
-    const mode = evaluation.data.terrainMode;
-    applyMatchResult(payload);
-    mode.matches = Array.isArray(mode.matches) ? mode.matches : [];
-    mode.matches.unshift({
-      at: new Date().toISOString(),
-      groupIndex: payload.groupIndex,
-      winnerId: payload.winner.id,
-      loserId: payload.loser.id,
-      refId: payload.ref?.id || null,
-      scoreText: payload.scoreText || "",
-      forfeitId: payload.forfeitId || null
-    });
-    if(mode.matches.length > 200){
-      mode.matches = mode.matches.slice(0,200);
+    const card = rotationMatchesEl.querySelector(`[data-group="${groupIndex}"]`);
+    if(card){
+      card.scrollIntoView({behavior:"smooth", block:"center"});
+      card.classList.add("pulse");
+      setTimeout(()=>card.classList.remove("pulse"), 900);
+    }else{
+      alert("Aucun match prévu pour ce terrain dans la rotation en cours.");
     }
-    persist();
-    render();
   }
 
   function applyMatchResult({groupIndex, winner, loser, ref, scoreText, forfeitId}){
@@ -1281,48 +1726,6 @@
     enforceSingleRefForGroup(currentIndex);
     window.EPSMatrix.ensureTerrainStudentFields(winner);
     window.EPSMatrix.ensureTerrainStudentFields(loser);
-  }
-
-  function applyManualMove(){
-    const studentId = correctionStudentSelect?.value;
-    const targetGroup = Number(correctionTargetGroup?.value);
-    if(!studentId || !targetGroup){
-      alert("Sélectionne un élève et un terrain cible.");
-      return;
-    }
-    const student = evaluation.data.students.find((stu)=>stu.id === studentId);
-    if(!student){
-      alert("Élève introuvable.");
-      return;
-    }
-    setStudentGroup(student, targetGroup);
-    if(student.role === "ref"){
-      enforceSingleRefForGroup(targetGroup, student.id);
-    }
-    persist();
-    render();
-  }
-
-  function applyManualRef(){
-    const studentId = correctionRefSelect?.value;
-    if(!studentId){
-      alert("Choisis un élève à désigner comme arbitre.");
-      return;
-    }
-    const student = evaluation.data.students.find((stu)=>stu.id === studentId);
-    if(!student){
-      alert("Élève introuvable.");
-      return;
-    }
-    const groupIndex = window.EPSMatrix.parseGroupIndex(student.groupTag);
-    if(!groupIndex){
-      alert("Assigne ce joueur à un terrain avant d'en faire un arbitre.");
-      return;
-    }
-    student.role = "ref";
-    enforceSingleRefForGroup(groupIndex, student.id);
-    persist();
-    render();
   }
 
   function openPlayerModal(studentId){

@@ -18,45 +18,17 @@
 <body class="hub">
   <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
   <main class="card-full hubCard">
-    <header>
-      <h1 style="margin:0;font-size:3.2rem;">EPS Matrix – Hub</h1>
-      <p class="lead">Choisis une action pour continuer.</p>
-      <div class="navButtons" style="justify-content:center;">
-        <a class="btn secondary" href="help.html" target="_blank" rel="noopener">Aide</a>
-      </div>
+    <header class="hubHeader">
+      <h1>EPS Matrix</h1>
+      <p class="lead">Ton tableau de bord EPS, pensé pour le terrain et l’iPad.</p>
     </header>
     <div class="hubChoices">
-      <a class="btn primary" href="classes.html">Accéder à mes classes</a>
-      <a class="btn secondary" href="create-class.html">Créer une classe</a>
-      <button class="btn secondary" onclick="document.getElementById('manual').classList.remove('hidden')">Mode d'emploi</button>
+      <a class="hubAction primary" href="classes.html">Accéder à mes classes</a>
+      <a class="hubAction secondary" href="help.html" target="_blank" rel="noopener">Mode d’emploi</a>
     </div>
+    <section class="hubIntro">
+      <p>EPS Matrix te permet de préparer tes évaluations, gérer les rotations de terrains, suivre les absences/dispenses et exporter automatiquement les bilans. Tout se passe en local : rapide, fiable et prêt pour le Pencil.</p>
+    </section>
   </main>
-
-  <div class="modal hidden" id="manual">
-    <div class="modalCard">
-      <h2>Mode d'emploi</h2>
-      <div class="manualBlocks">
-        <div class="manualBlock" data-tone="blue">
-          <h3>Créer vos classes</h3>
-          <p>Définis la classe, colle la liste brute (Nom Prénom) : EPS Matrix nettoie automatiquement en Prénom + initiale.</p>
-        </div>
-        <div class="manualBlock" data-tone="green">
-          <h3>Organiser par champs</h3>
-          <p>Depuis « Mes classes », ouvre un dossier, puis choisis CA1‑CA5 ou Bloc note. Le nombre d'évaluations actives est affiché sur chaque carte.</p>
-        </div>
-        <div class="manualBlock" data-tone="orange">
-          <h3>Saisir & valider</h3>
-          <p>Dans Évaluation : configure les critères, regroupe les élèves (1‑6 / A‑F), renseigne A/PA/NA ou 1‑4, puis exporte CSV ou PDF.</p>
-        </div>
-        <div class="manualBlock" data-tone="pink">
-          <h3>Tips rapides</h3>
-          <p>Mode nuit, plein écran iPad, bloc note avec post-it + stylet, sauvegarde locale automatique.</p>
-        </div>
-      </div>
-      <div class="actions" style="text-align:right;">
-        <button class="btn secondary" onclick="document.getElementById('manual').classList.add('hidden')">Fermer</button>
-      </div>
-    </div>
-  </div>
 </body>
 </html>

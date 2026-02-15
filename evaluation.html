@@ -38,7 +38,7 @@
         </label>
         <button class="btn secondary" id="btnExportPdf">PDF</button>
         <button class="btn secondary" id="btnTableOnly">Plein écran</button>
-        <a class="btn secondary" href="help.html" target="_blank" rel="noopener">Aide</a>
+        <a class="btn secondary helpLink" href="help.html" target="_blank" rel="noopener">🛈 Mode d’emploi</a>
       </div>
     </header>
     <div class="stats" id="evalStats"></div>
@@ -64,6 +64,19 @@
         <h4>Matches récents</h4>
         <ul id="terrainMatchesList"></ul>
       </div>
+    </section>
+    <section class="rotationPanel" id="rotationPanel">
+      <div class="sectionHeader">
+        <div>
+          <h3>Rotation en cours</h3>
+          <p class="muted"><span id="rotationRoundLabel">Rotation #1</span> • Saisis les scores puis passe à la rotation suivante.</p>
+        </div>
+        <div class="rotationActions">
+          <button class="btn secondary" type="button" id="btnUndoRotation" disabled>Annuler la dernière rotation</button>
+          <button class="btn primary" type="button" id="btnNextRotation" disabled>Rotation suivante</button>
+        </div>
+      </div>
+      <div id="rotationMatches" class="rotationMatches"></div>
     </section>
     <div class="tableWrapper">
       <table>
@@ -148,59 +161,6 @@
       <div class="actions" style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
         <button class="btn secondary" id="btnCopyPrompt" type="button">Copier le prompt</button>
         <button class="btn primary" id="btnOpenChatGPT" type="button">Ouvrir chatgpt.com</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal hidden" id="matchModal" role="dialog" aria-modal="true">
-    <div class="modalCard large">
-      <div class="modalHeader">
-        <h2 id="matchModalTitle">Match – Terrain</h2>
-        <button class="iconButton" data-close-modal>&times;</button>
-      </div>
-      <div class="matchForm">
-        <label>Gagnant
-          <select id="matchWinnerSelect"></select>
-        </label>
-        <label>Perdant
-          <select id="matchLoserSelect"></select>
-        </label>
-        <label>Score / note
-          <input type="text" id="matchScoreInput" placeholder="21-18, 2-0..." />
-        </label>
-        <label>Arbitre
-          <select id="matchRefSelect"></select>
-        </label>
-        <label class="switchRow">
-          <input type="checkbox" id="matchForfeitToggle" />
-          <span>Abandon (sélectionne ensuite qui abandonne)</span>
-        </label>
-        <label>Joueur qui abandonne
-          <select id="matchForfeitSelect"></select>
-        </label>
-      </div>
-      <details class="correctionPanel">
-        <summary>Correction manuelle</summary>
-        <div class="correctionGrid">
-          <label>Déplacer un élève
-            <select id="correctionStudentSelect"></select>
-          </label>
-          <label>Vers Terrain #
-            <select id="correctionTargetGroup"></select>
-          </label>
-          <button class="btn secondary" type="button" id="btnApplyMove">Appliquer le déplacement</button>
-        </div>
-        <div class="correctionGrid">
-          <label>Définir l’arbitre du terrain
-            <select id="correctionRefSelect"></select>
-          </label>
-          <button class="btn secondary" type="button" id="btnApplyRef">Mettre à jour l’arbitre</button>
-        </div>
-      </details>
-      <div class="actions modalActions">
-        <span class="flex-fill"></span>
-        <button class="btn secondary" type="button" data-close-modal>Annuler</button>
-        <button class="btn primary" type="button" id="btnValidateMatch">Valider le match</button>
       </div>
     </div>
   </div>

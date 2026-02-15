@@ -553,7 +553,10 @@ function createDefaultTerrainMode(){
     terrainCount:DEFAULT_TERRAIN_COUNT,
     terrains:[],
     linkedToGroups:true,
-    matches:[]
+    matches:[],
+    currentRound:1,
+    rounds:[],
+    entrantRoundByStudentId:{}
   };
 }
 
@@ -597,10 +600,58 @@ function normalizeTerrainMode(rawMode, students){
   mode.terrainCount = clampTerrainCount(mode.terrainCount || base.terrainCount);
   mode.linkedToGroups = true;
   mode.matches = normalizeTerrainMatches(mode.matches);
+  mode.currentRound = Number.isInteger(mode.currentRound) && mode.currentRound > 0 ? mode.currentRound : 1;
+  mode.rounds = Array.isArray(mode.rounds) ? mode.rounds.map(normalizeRound).filter(Boolean) : [];
+  stripMatchLocks(mode.rounds);
+  mode.entrantRoundByStudentId = (mode.entrantRoundByStudentId && typeof mode.entrantRoundByStudentId === "object") ? mode.entrantRoundByStudentId : {};
   if(Array.isArray(students)){
     students.forEach(ensureTerrainStudentFields);
   }
   return mode;
+}
+
+function normalizeRound(round){
+  if(!round || typeof round !== "object") return null;
+  const matches = Array.isArray(round.matches) ? round.matches.map(normalizeRoundMatch).filter(Boolean) : [];
+  const normalized = {
+    round: Number.isInteger(round.round) ? round.round : 1,
+    createdAt: round.createdAt || new Date().toISOString(),
+    matches
+  };
+  matches.forEach((match)=>{ match.round = normalized.round; delete match.locked; });
+  return normalized;
+}
+
+function normalizeRoundMatch(match){
+  if(!match || typeof match !== "object") return null;
+  return {
+    id: match.id || genId("match"),
+    groupIndex: clampGroupIndex(match.groupIndex || match.group),
+    aId: match.aId || null,
+    bId: match.bId || null,
+    refId: match.refId || null,
+    scoreA: Number.isFinite(match.scoreA) ? match.scoreA : null,
+    scoreB: Number.isFinite(match.scoreB) ? match.scoreB : null,
+    status: match.status === "done" ? "done" : "pending",
+    winnerId: match.winnerId || null,
+    loserId: match.loserId || null,
+    forfeitId: match.forfeitId || null,
+    forfeitEnabled: match.forfeitEnabled === true,
+    round: Number.isInteger(match.round) ? match.round : null
+  };
+}
+
+function stripMatchLocks(rounds){
+  (rounds || []).forEach((round)=>{
+    (round.matches || []).forEach((match)=>{
+      if(round?.round){
+        match.round = round.round;
+      }
+      if(match.locked){
+        delete match.locked;
+      }
+    });
+  });
 }
 
 function normalizeTerrainMatches(rawMatches){
@@ -611,9 +662,11 @@ function normalizeTerrainMatches(rawMatches){
         parseGroupIndex(entry?.groupTag) ??
         parseGroupIndex(entry?.terrainId)
     );
+    const round = Number.isInteger(entry?.round) && entry.round > 0 ? entry.round : null;
     return {
       at: entry?.at || new Date().toISOString(),
       groupIndex: groupIndex || 1,
+      round,
       winnerId: entry?.winnerId || null,
       loserId: entry?.loserId || null,
       refId: typeof entry?.refId === "string" ? entry.refId : null,

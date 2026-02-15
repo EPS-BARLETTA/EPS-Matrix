@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>EPS Matrix – Aide</title>
+  <title>EPS Matrix – Mode d’emploi</title>
   <script>
     (function(){
       try{
@@ -15,75 +15,156 @@
   <link rel="stylesheet" href="styles.css" />
   <script defer src="theme.js"></script>
 </head>
-<body>
+<body class="helpPage">
   <button class="themeToggle" id="themeToggle" aria-label="Mode nuit">🌙</button>
-  <main class="card-full" style="gap:24px;max-width:960px;">
+  <main class="card-full helpShell">
     <header class="app">
       <div>
-        <h2>Aide & modes d'emploi</h2>
+        <h2>Mode d’emploi EPS Matrix</h2>
         <p class="dragHint">Version du <span id="helpDate"></span></p>
       </div>
       <div class="navButtons">
         <a class="btn secondary" href="hub.html">← Retour hub</a>
-        <a class="btn secondary" href="evaluation.html" target="_blank" rel="noopener">Ouvrir une évaluation</a>
+        <a class="btn secondary" href="classes.html">Mes classes</a>
       </div>
     </header>
-
-    <section class="manualBlock" data-tone="blue">
-      <h3>Sauvegarder ou récupérer ses données</h3>
-      <ul>
-        <li><strong>Archive d’évaluation (.epsarchive.json)</strong> : exporte une seule évaluation (critères + notes). À réimporter depuis “Importer un archivage” dans une classe.</li>
-        <li><strong>Sauvegarde complète (.epsbackup.json)</strong> : capture toute l’app (“Sauvegarder mes classes”) ou une classe (“Sauvegarder la classe”). Fichier structuré avec <code>kind</code> = <em>epsmatrix.appBackup</em> ou <em>epsmatrix.classBackup</em>.</li>
-        <li><strong>Import non destructif</strong> : restaurer ajoute ou duplique (classe suffixée “(restaurée AAAA-MM-JJ)”, évaluations clonées si l’ID existe). Rien n’est écrasé automatiquement.</li>
-        <li><strong>Workflow iPad Fichiers</strong> : exporter, déposer dans Fichiers, renommer si besoin. Pour restaurer, “Récupérer une sauvegarde” puis choisir le fichier. Tu peux vider le cache navigateur après avoir mis tes sauvegardes de côté.</li>
-        <li><strong>Rapports</strong> : chaque import affiche combien de classes/évaluations ont été ajoutées, dupliquées ou ignorées (format incompatible).</li>
-      </ul>
-    </section>
-
-    <section class="manualBlock" data-tone="green">
-      <h3>Archivage des évaluations</h3>
-      <ul>
-        <li>Cliquer sur “Archiver” masque simplement l’évaluation (statut = archivées). Les données restent dans la classe.</li>
-        <li>Les listes affichent une section “Archivées” dans la classe : tu peux ouvrir, désarchiver ou supprimer depuis cette section.</li>
-        <li>Exporter/Importer continue de fonctionner même pour une évaluation archivée.</li>
-      </ul>
-    </section>
-
-    <section class="manualBlock" data-tone="orange">
-      <h3>ABS / DISP (absent / dispensé)</h3>
-      <ul>
-        <li>Les badges ABS/DISP sont toujours visibles dans le tableau. Les lignes deviennent gris clair (DISP) ou gris bleuté (ABS) et sont triées à la fin.</li>
-        <li>En mode terrain, ABS et DISP basculent automatiquement dans la carte “Hors terrain” : ils ne participent plus aux matchs tant que le statut reste actif.</li>
-        <li>L’export CSV ajoute deux colonnes <code>absent</code> et <code>dispense</code> (true/false). L’import CSV accepte ces colonnes et met à jour les statuts.</li>
-      </ul>
-    </section>
-
-    <section class="manualBlock" data-tone="pink">
-      <h3>Mode terrain (type iDoceo)</h3>
-      <ul>
-        <li><strong>Activer & initialiser</strong> : bouton “Mode terrain” dans l’évaluation → choisir le nombre de terrains (1 à 8) → “Initialiser” répartit les élèves présents (round-robin) et définit un arbitre max par terrain.</li>
-        <li><strong>Tableau = source de vérité</strong> : chaque élève possède <em>Terrain</em> + <em>Rôle</em>. Modifier ces champs dans le tableau met instantanément à jour les cartes terrains (et inversement).</li>
-        <li><strong>Vue globale</strong> : cartes Terrain 1..N avec Arbitre, Joueurs, sections “À affecter” et “Hors terrain (ABS/DISP)”. Tap sur une carte → vue détail.</li>
-        <li><strong>Vue détail</strong> : sélectionner gagnant/perdant, saisir un score libre, valider. Le système applique la règle officielle : le gagnant monte d’un terrain (ou reste sur T1) et devient arbitre, le perdant descend, l’ancien arbitre rejoue sur son terrain, et un seul arbitre par terrain est conservé.</li>
-        <li><strong>Notes libres</strong> : bouton 📝 à côté de chaque élève (tableau, cartes et vue détail) → modale texte synchronisée.</li>
-        <li><strong>Résultats</strong> : section dédiée “Mode terrain – Résultats” avec classement (points 3/1, puis victoires, puis terrain actuel, puis ordre alpha). Export CSV dédié disponible.</li>
-        <li><strong>Exemple</strong> : “Tournoi badminton 5e” avec 4 terrains / 12 élèves. Lance l’init → terrains T1..T4. Après chaque match, clique sur la carte, sélectionne gagnant/perdant, indique le score (ex : 21-17) → Valider. Après une dizaine de rotations, ouvre l’onglet Résultats pour annoncer les finalistes (points et rang affichés automatiquement).</li>
-      </ul>
-    </section>
-
-    <section class="manualBlock" data-tone="green">
-      <h3>Questions fréquentes</h3>
-      <ul>
-        <li><strong>Puis-je travailler hors-ligne ?</strong> Oui : tout est en localStorage. Pense simplement à exporter une sauvegarde régulièrement (fichiers .epsbackup.json).</li>
-        <li><strong>Et sur iPad + Apple Pencil ?</strong> Le mode stylet est optimisé pour Pencil : plein écran, gomme, épaisseurs, export PNG et multi-pages.</li>
-        <li><strong>Comment partager une grille ?</strong> Export CSV pour un collègue, ou archive .epsarchive.json pour une évaluation complète.</li>
-      </ul>
+    <section class="helpGrid">
+      <article class="helpCard" data-tone="blue">
+        <button type="button" class="helpCardButton" data-target="card-create-class">Créer une classe</button>
+        <div class="helpContent" id="card-create-class">
+          <ol>
+            <li>Depuis le hub, touche « Accéder à mes classes » puis « Créer une classe ».</li>
+            <li>Colle la liste brute « Nom Prénom » : EPS Matrix nettoie en Prénom + initiale.</li>
+            <li>Ajoute la couleur, le niveau et c’est prêt.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="green">
+        <button type="button" class="helpCardButton" data-target="card-add-students">Ajouter des élèves</button>
+        <div class="helpContent" id="card-add-students">
+          <ol>
+            <li>Dans la classe, clique « Créer une évaluation » → les élèves sont importés automatiquement.</li>
+            <li>Besoin d’ajouter quelqu’un ? utilise « + Élève » ou importe un CSV (nom, prénom, student_id).</li>
+            <li>EPS Matrix attribue un identifiant unique pour sécuriser les imports.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="orange">
+        <button type="button" class="helpCardButton" data-target="card-create-eval">Créer une évaluation</button>
+        <div class="helpContent" id="card-create-eval">
+          <ol>
+            <li>Choisis un champ CA1‑CA5 (ou Bloc note) dans la classe.</li>
+            <li>Configure les critères, options et pondérations dans « Configurer / Notation ».</li>
+            <li>Active la note /20 si besoin, puis saisis les niveaux directement dans le tableau.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="pink">
+        <button type="button" class="helpCardButton" data-target="card-groups">Attribuer un groupe (terrains)</button>
+        <div class="helpContent" id="card-groups">
+          <ol>
+            <li>Dans l’évaluation, colonne « Groupe » = terrain actuel (1..20).</li>
+            <li>Utilise « Initialiser le classement » pour répartir automatiquement les présents.</li>
+            <li>ABS/DISP vont automatiquement dans « Hors terrain ».</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="teal">
+        <button type="button" class="helpCardButton" data-target="card-terrain-scores">Mode terrain : saisir les scores</button>
+        <div class="helpContent" id="card-terrain-scores">
+          <ol>
+            <li>Active « Mode terrain », puis touche « Saisir score » sur la carte terrain.</li>
+            <li>Renseigne les deux scores (A vs B) ou active « Abandon ».</li>
+            <li>Chaque carte affiche l’arbitre, le statut et un bouton « Corriger » tant que la rotation n’est pas validée.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="purple">
+        <button type="button" class="helpCardButton" data-target="card-rotation">Rotation suivante</button>
+        <div class="helpContent" id="card-rotation">
+          <ol>
+            <li>Quand tous les matches sont « Terminé », le bouton « Rotation suivante » s’active.</li>
+            <li>Le gagnant monte d’un terrain (et devient arbitre), le perdant descend, l’ancien arbitre rejoue.</li>
+            <li>Les entrants du round suivant sont prioritaires pour affronter l’arbitre du terrain où ils arrivent.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="red">
+        <button type="button" class="helpCardButton" data-target="card-forfeit">Abandon / Forfait</button>
+        <div class="helpContent" id="card-forfeit">
+          <ol>
+            <li>Active le toggle « Abandon » sur la carte du match.</li>
+            <li>Choisis qui abandonne : le match passe immédiatement « Terminé – Forfait ».</li>
+            <li>Le journal et le bilan élève indiquent automatiquement la mention “FORFAIT”.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="indigo">
+        <button type="button" class="helpCardButton" data-target="card-undo">Annuler la dernière rotation</button>
+        <div class="helpContent" id="card-undo">
+          <ol>
+            <li>Après « Rotation suivante », le bouton « Annuler la dernière rotation » devient actif.</li>
+            <li>Un tap restaure les terrains, rôles, scores et historiques du round précédent.</li>
+            <li>Modifie ce qu’il faut, puis relance « Rotation suivante ».</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="yellow">
+        <button type="button" class="helpCardButton" data-target="card-results">Résultats & bilan élève</button>
+        <div class="helpContent" id="card-results">
+          <ol>
+            <li>Section « Mode terrain – Résultats » : classement trié (points, victoires, terrain, nom).</li>
+            <li>Touche une ligne pour ouvrir la fiche élève (matchs, scores, abandons, notes libres).</li>
+            <li>Export CSV dédié disponible pour partager le podium.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="gray">
+        <button type="button" class="helpCardButton" data-target="card-backup">Sauvegarder / restaurer</button>
+        <div class="helpContent" id="card-backup">
+          <ol>
+            <li>« Sauvegarder mes classes » = backup complet (.epsbackup.json). « Sauvegarder la classe » = classe seule.</li>
+            <li>Import non destructif : si une classe existe déjà, elle est dupliquée avec le suffixe “(restaurée JJ-MM)”.</li>
+            <li>Depuis iPad, stocke les fichiers dans Fichiers › iCloud pour pouvoir vider le cache en toute sérénité.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="brown">
+        <button type="button" class="helpCardButton" data-target="card-abs">ABS / DISP</button>
+        <div class="helpContent" id="card-abs">
+          <ol>
+            <li>Les boutons ABS/DISP du tableau grisent la ligne et envoient l’élève hors terrain.</li>
+            <li>Exporter CSV ajoute deux colonnes (<code>absent</code>, <code>dispense</code>) utilisables à l’import.</li>
+            <li>En mode terrain, seuls les présents apparaissent dans les matches.</li>
+          </ol>
+        </div>
+      </article>
+      <article class="helpCard" data-tone="aqua">
+        <button type="button" class="helpCardButton" data-target="card-tips">Astuces terrain</button>
+        <div class="helpContent" id="card-tips">
+          <ul>
+            <li>Pense à ajouter le lien help.html à ton écran d’accueil iPad pour un accès instantané.</li>
+            <li>Active « Plein écran » avant une saisie intense : la table gagne en lisibilité.</li>
+            <li>Utilise le Pencil pour switcher stylet/gomme d’un simple double-tap, EPS Matrix suit la config système.</li>
+          </ul>
+        </div>
+      </article>
     </section>
   </main>
   <script>
     const label = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
     const target = document.getElementById('helpDate');
     if(target){ target.textContent = label; }
+    document.querySelectorAll('.helpCardButton').forEach((btn)=>{
+      btn.addEventListener('click', ()=>{
+        const card = btn.closest('.helpCard');
+        const content = document.getElementById(btn.dataset.target);
+        if(!card || !content) return;
+        const isOpen = card.classList.toggle('open');
+        content.hidden = !isOpen;
+      });
+    });
+    document.querySelectorAll('.helpContent').forEach((content)=>content.hidden = true);
   </script>
 </body>
 </html>
