@@ -218,6 +218,10 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainConfig input{width:90px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-family:inherit;}
 .terrainGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
 .terrainGrid.inset{opacity:.35;pointer-events:none;}
+.terrainContent.hidden{display:none;}
+.modePlaceholderCard{border:1px dashed var(--line);border-radius:28px;padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;background:rgba(248,251,255,.85);color:var(--muted);}
+.placeholderIcon{font-size:2.5rem;}
+.terrainMatches{margin-top:24px;border:1px solid var(--line);border-radius:24px;padding:20px;background:#fff;}
 .terrainCard{border:1px solid var(--line);border-radius:18px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(15,23,42,.08);}
 .terrainCard.compact{gap:6px;}
 .terrainCard header{display:flex;align-items:center;justify-content:space-between;gap:10px;}
@@ -254,8 +258,7 @@ tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 .terrainDetailRowActions button.active{background:var(--blue);color:#fff;border-color:var(--blue);}
 .terrainScoreField{display:flex;flex-direction:column;font-weight:600;color:var(--muted);gap:6px;}
 .terrainScoreField input{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-family:inherit;}
-.terrainMatches ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;}
-.terrainMatches h4{margin:0;}
+.terrainMatches ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
 .resultsPanel{border:1px solid var(--line);border-radius:24px;padding:20px;background:#fff;text-align:left;}
 .resultsPanel .sectionHeader{margin-bottom:12px;}
 .resultsPanel tbody tr{cursor:pointer;}

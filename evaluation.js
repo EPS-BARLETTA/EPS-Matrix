@@ -60,10 +60,12 @@
   const terrainModeHint = document.getElementById("terrainModeHint");
   const modeSoonMessage = document.getElementById("modeSoonMessage");
   const terrainConfigRow = document.getElementById("terrainConfigRow");
+  const modePlaceholderCard = document.getElementById("modePlaceholderCard");
+  const terrainContent = document.getElementById("terrainContent");
   const terrainCountInput = document.getElementById("terrainCountInput");
   const btnInitTerrains = document.getElementById("btnInitTerrains");
   const terrainGrid = document.getElementById("terrainGrid");
-  const terrainDisabledHint = document.getElementById("terrainDisabledHint");
+  const terrainMatchesSection = document.getElementById("terrainMatchesSection");
   const terrainMatchesList = document.getElementById("terrainMatchesList");
   const resultsPanel = document.getElementById("resultsPanel");
   const resultsBody = document.getElementById("resultsBody");
@@ -1637,14 +1639,14 @@ function assignGroupsRoundRobin(count){
       btnInitTerrains.disabled = !mode.enabled;
       btnInitTerrains.classList.toggle("disabled", !mode.enabled);
     }
+    modePlaceholderCard?.classList.toggle("hidden", Boolean(mode.enabled));
+    terrainContent?.classList.toggle("hidden", !mode.enabled);
     if(!mode.enabled){
       terrainGrid.innerHTML = "";
-      terrainDisabledHint?.classList.remove("hidden");
       renderMatchesList([]);
       hideRotationReadyPopup();
       return;
     }
-    terrainDisabledHint?.classList.add("hidden");
     const cards = [];
     const groups = buildTerrainGroups();
     groups.forEach((group)=>{ cards.push(buildTerrainCard(group)); });
@@ -1743,15 +1745,19 @@ function assignGroupsRoundRobin(count){
 
   function renderMatchesList(matches){
     if(!terrainMatchesList) return;
-    if(!evaluation.data.terrainMode.enabled){
-      terrainMatchesList.innerHTML = '<li class="muted">Active le mode terrain pour suivre les matches.</li>';
+    const enabled = Boolean(evaluation.data.terrainMode?.enabled);
+    if(!enabled){
+      terrainMatchesList.innerHTML = "";
+      terrainMatchesSection?.classList.add("hidden");
       return;
     }
     const recent = (matches||[]).slice(0,10);
     if(!recent.length){
       terrainMatchesList.innerHTML = '<li class="muted">Aucun match enregistré.</li>';
+      terrainMatchesSection?.classList.remove("hidden");
       return;
     }
+    terrainMatchesSection?.classList.remove("hidden");
     terrainMatchesList.innerHTML = recent.map((match)=>formatMatchEntry(match)).join("");
   }
 

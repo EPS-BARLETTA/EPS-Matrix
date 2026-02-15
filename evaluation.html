@@ -61,11 +61,15 @@
           <button class="btn secondary" type="button" id="btnInitTerrains">Initialiser le classement</button>
         </div>
       </div>
-      <p class="muted smallText" id="terrainDisabledHint">Active le mode terrain pour générer automatiquement les cartes à partir des groupes.</p>
-      <div class="terrainGrid" id="terrainGrid"></div>
-      <div class="terrainMatches">
-        <h4>Matches récents</h4>
-        <ul id="terrainMatchesList"></ul>
+      <div class="modePlaceholderCard" id="modePlaceholderCard">
+        <span class="placeholderIcon" role="img" aria-label="Configuration">⚙️</span>
+        <p>Choisis un mode pour afficher ses options.</p>
+      </div>
+      <div class="terrainContent hidden" id="terrainContent">
+        <div class="terrainGrid" id="terrainGrid"></div>
+        <div class="terrainMatches" id="terrainMatchesSection">
+          <ul id="terrainMatchesList"></ul>
+        </div>
       </div>
     </section>
     <section class="rotationPanel" id="rotationPanel">
