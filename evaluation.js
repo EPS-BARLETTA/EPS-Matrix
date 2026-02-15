@@ -78,6 +78,7 @@
   const studentMatchesList = document.getElementById("studentMatchesList");
   let editingPlayerId = null;
   let viewingStudentId = null;
+  let rotationPersistTimer = null;
 
   const evalTitleEl = document.getElementById("evalTitle");
   const evalMetaEl = document.getElementById("evalMeta");
@@ -434,8 +435,9 @@
     }
     match[field] = value;
     evaluateMatchScore(match, input);
-    persist();
-    renderRotationPanel();
+    scheduleRotationPersist();
+    updateRotationMatchCard(card, match);
+    refreshRotationButtons();
   }
 
   function handleRotationMatchClick(event){
@@ -739,6 +741,7 @@
   btnExportResultsCsv?.addEventListener("click", exportResultsCsv);
   resultsBody?.addEventListener("click", handleResultsClick);
   rotationMatchesEl?.addEventListener("input", handleRotationScoreInput);
+  rotationMatchesEl?.addEventListener("change", handleRotationScoreChange);
   rotationMatchesEl?.addEventListener("click", handleRotationMatchClick);
   rotationMatchesEl?.addEventListener("change", handleRotationControlChange);
 
@@ -1050,6 +1053,24 @@
   function persist(){
     evaluation.data.savedAt = Date.now();
     window.EPSMatrix.saveState(state);
+  }
+
+  function scheduleRotationPersist(){
+    if(rotationPersistTimer){
+      clearTimeout(rotationPersistTimer);
+    }
+    rotationPersistTimer = setTimeout(()=>{
+      rotationPersistTimer = null;
+      persist();
+    }, 250);
+  }
+
+  function flushRotationPersist(){
+    if(rotationPersistTimer){
+      clearTimeout(rotationPersistTimer);
+      rotationPersistTimer = null;
+    }
+    persist();
   }
 
   async function createEvaluationFromField(fieldId){
@@ -1614,6 +1635,12 @@ function assignGroupsRoundRobin(count){
     return mode.rounds.find((round)=>round.round === roundNumber) || null;
   }
 
+  function refreshRotationButtons(){
+    const round = getCurrentRoundData();
+    updateRotationCta(round);
+    updateUndoButton();
+  }
+
   function rotationMatchCard(match){
     const playerA = evaluation.data.students.find((stu)=>stu.id === match.aId);
     const playerB = evaluation.data.students.find((stu)=>stu.id === match.bId);
@@ -1629,8 +1656,7 @@ function assignGroupsRoundRobin(count){
     const toggleDisabledAttr = isLocked ? "disabled" : "";
     const forfeitVisible = match.forfeitEnabled === true;
     const forfeitClass = forfeitVisible ? "" : "hidden";
-    const statusLabel = match.status === "done" ? (match.forfeitId ? "Terminé – Forfait" : "Terminé") : "En attente";
-    const forfeitHelper = match.forfeitId ? ` • Abandon : ${match.forfeitId === match.aId ? nameA : nameB}` : "";
+    const statusText = formatMatchStatus(match);
     const forfeitRadios = `
       <div class="forfeitRadios ${forfeitClass}">
         <label>
@@ -1667,7 +1693,7 @@ function assignGroupsRoundRobin(count){
         ${forfeitRadios}
       </div>
       <div class="rotationMatchFooter">
-        <span class="rotationMatchMeta">Statut : ${statusLabel}${forfeitHelper}</span>
+        <span class="rotationMatchMeta" data-role="match-status">${statusText}</span>
         ${correctionButton}
       </div>
     </article>`;
@@ -1677,6 +1703,45 @@ function assignGroupsRoundRobin(count){
     if(!id) return "—";
     const student = evaluation.data.students.find((stu)=>stu.id === id);
     return student ? escapeHtml(student.name) : "—";
+  }
+
+  function formatMatchStatus(match){
+    const prefix = match.status === "done"
+      ? (match.forfeitId ? "Statut : Terminé – Forfait" : "Statut : Terminé")
+      : "Statut : En attente";
+    if(match.forfeitId){
+      const name = findStudentName(match.forfeitId);
+      return `${prefix} • Abandon : ${name}`;
+    }
+    return prefix;
+  }
+
+  function updateRotationMatchCard(card, match){
+    if(!card || !match) return;
+    const locked = isMatchLocked(match);
+    card.classList.toggle("done", match.status === "done");
+    card.classList.toggle("locked", locked);
+    const statusEl = card.querySelector("[data-role='match-status']");
+    if(statusEl){
+      statusEl.textContent = formatMatchStatus(match);
+    }
+    card.querySelectorAll("input[type='number'][data-field]").forEach((input)=>{
+      const fieldName = input.dataset.field;
+      input.value = match[fieldName] ?? "";
+      const disableScores = locked || match.forfeitEnabled || match.status === "done";
+      input.disabled = disableScores;
+    });
+    const forfeitToggle = card.querySelector('[data-action="toggle-forfeit"]');
+    if(forfeitToggle){
+      forfeitToggle.checked = Boolean(match.forfeitEnabled);
+      forfeitToggle.disabled = locked;
+    }
+    card.querySelectorAll('[data-action="select-forfeit"]').forEach((radio)=>{
+      const playerKey = radio.dataset.player;
+      const playerId = playerKey === "a" ? match.aId : match.bId;
+      radio.checked = Boolean(match.forfeitId && match.forfeitId === playerId);
+      radio.disabled = locked || !match.forfeitEnabled;
+    });
   }
 
   function handleTerrainGridClick(event){
@@ -1950,3 +2015,19 @@ function assignGroupsRoundRobin(count){
     openStudentSummary(studentId);
   }
 })();
+  function handleRotationScoreChange(event){
+    const input = event.target;
+    if(!input || input.tagName !== "INPUT" || input.type !== "number") return;
+    const field = input.dataset.field;
+    if(field !== "scoreA" && field !== "scoreB") return;
+    const card = input.closest("[data-match]");
+    const matchId = card?.dataset.match;
+    if(!matchId) return;
+    const round = getCurrentRoundData();
+    if(!round) return;
+    const match = round.matches.find((m)=>m.id === matchId);
+    if(!match) return;
+    flushRotationPersist();
+    updateRotationMatchCard(card, match);
+    refreshRotationButtons();
+  }

@@ -124,11 +124,12 @@ h1{font-size:clamp(2.5rem,6vw,4rem);margin:0;}
 .btn.secondary.danger{color:#b91c1c;background:rgba(185,28,28,.12);}
 .btn:disabled{opacity:.4;pointer-events:none;}
 .card{background:var(--panel);border-radius:28px;padding:32px;box-shadow:0 30px 90px rgba(12,38,85,.12);} 
-.formShell{background:#fff;border-radius:30px;padding:32px;box-shadow:0 35px 90px rgba(12,38,85,.12);text-align:left;display:flex;flex-direction:column;gap:20px;}
+.formShell{background:var(--panel);border-radius:30px;padding:32px;box-shadow:0 35px 90px rgba(12,38,85,.12);text-align:left;display:flex;flex-direction:column;gap:20px;color:var(--navy);}
 .formGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
 .formGrid label{display:flex;flex-direction:column;font-weight:600;color:var(--muted);gap:6px;}
 .formGrid input,.formShell textarea{border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:1rem;font-family:inherit;}
 .formShell textarea{min-height:160px;resize:vertical;}
+.formShell select{border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:1rem;font-family:inherit;background:#fff;}
 header.app{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:24px;}
 header.app h2{margin:0;font-size:2rem;}
 .navButtons{display:flex;flex-wrap:wrap;gap:12px;}
@@ -158,6 +159,24 @@ table textarea{min-height:40px;resize:vertical;}
 :root[data-theme="dark"] tbody td{border-color:#1f3358;}
 :root[data-theme="dark"] table input,
 :root[data-theme="dark"] table textarea{background:#14213d;color:#e2e8ff;border-color:#273555;}
+:root[data-theme="dark"] .cardSection,
+:root[data-theme="dark"] .terrainPanel,
+:root[data-theme="dark"] .terrainCard,
+:root[data-theme="dark"] .rotationMatchCard,
+:root[data-theme="dark"] .folder,
+:root[data-theme="dark"] .manualBlock,
+:root[data-theme="dark"] .helpCard{background:#131f3c;color:#e5edff;border-color:#273555;box-shadow:0 20px 60px rgba(0,0,0,.55);}
+:root[data-theme="dark"] .rotationMatchCard.done{background:#112440;border-color:#22436c;}
+:root[data-theme="dark"] .rotationMatchExtras .forfeitToggle,
+:root[data-theme="dark"] .rotationMatchMeta,
+:root[data-theme="dark"] .terrainLabel,
+:root[data-theme="dark"] .hubIntro,
+:root[data-theme="dark"] .lead,
+:root[data-theme="dark"] .manualBlock p,
+:root[data-theme="dark"] .manualBlock ul,
+:root[data-theme="dark"] .helpCard .helpContent{color:#b7c4f4;}
+:root[data-theme="dark"] body{color:#e2e8ff;}
+:root[data-theme="dark"] .hubAction.secondary{background:#14213d;border-color:#273555;color:#e3e9ff;}
 .nameCell{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:190px;}
 .studentName{font-weight:600;}
 .presenceBadges{display:flex;gap:6px;}
@@ -175,6 +194,11 @@ tbody tr.isDispense td{background:#f1f5f9;color:#64748b;}
 tbody tr.isAbsent td{background:#e2e8f0;color:#475569;}
 :root[data-theme="dark"] tbody tr.isDispense td{background:#1f2a44;color:#a3b2d8;}
 :root[data-theme="dark"] tbody tr.isAbsent td{background:#162033;color:#cad3f1;}
+:root[data-theme="dark"] .formShell{background:#0f1b36;box-shadow:0 35px 120px rgba(0,0,0,.55);color:#e2e8ff;}
+:root[data-theme="dark"] .formShell input,
+:root[data-theme="dark"] .formShell textarea,
+:root[data-theme="dark"] .formShell select{background:#14213d;color:#e2e8ff;border-color:#273555;}
+:root[data-theme="dark"] .formGrid label{color:#c7d2fe;}
 .status{font-weight:600;}
 .status.success{color:#15803d;}
 .status.warning{color:#b45309;}
